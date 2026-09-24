@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<style>
+
+	.form-radio {
+	    -webkit-appearance:none;
+	    width:20px;
+	    height:20px;
+	    border:1px solid darkgray;
+	    border-radius:50%;
+	    outline:none;
+	    cursor: pointer;     
+	    margin-right: 7px;
+	    display: inline-block;
+	     position: relative;
+	     background-color: #f1f1f1;
+	    // box-shadow:0 0 5px 0px gray inset;
+	}
+	.form-radio:hover {
+	    box-shadow:0 0 5px 0px orange inset;
+	}
+	.form-radio:before {
+	    content:'';
+	    display:block;
+	    width:10px; /* updated */
+	    height:10px; /* updated */
+	    margin: 20% auto;    
+	    border-radius:50%;    
+	}
+	.form-radio:checked:before {
+	    background-color: rgb(86,155,248); //blue;
+	    font: 13px/1 'Open Sans', sans-serif;
+	    outline:none;
+	}
+	.form-radio:checked:focus {
+	    outline:none;
+	}
+
+
+	.checkmark {
+	  /*position: absolute;
+	  top: 0;
+	  left: 0;*/
+	  height: 20px;
+	  width: 20px;
+	  background-color: #eee;
+	}
+
+
+	label
+	{
+	     font: 15px/1.7 'Open Sans', sans-serif;
+	     color: #333;
+	     -webkit-font-smoothing: antialiased;
+	     -moz-osx-font-smoothing: grayscale;
+	     // cursor: pointer;
+	     font-weight:normal !important;
+	} 
+
+
+	line {
+		width: 300px;
+		margin-left: auto;
+		margin-right: auto;
+		height: 100px;
+		background-color:#2020ab;
+		opcaity: 0.5;
+	}
+
+	div.content {
+		width: 1100px;
+		margin: auto;
+	}
+
+	ul {
+	  list-style-type: none;
+	  margin: auto;
+	  /*padding: 6px;*/
+	  text-align: center;
+	  padding-left: 20px;
+	  width: 1090px;
+	  font-size:14px;
+	  overflow: hidden;
+	  background-color: #007399;
+	}
+
+	li {
+	  float: left;
+	}
+
+	li.right {
+	  float: right;
+	}
+
+	li a {
+	  display: block;
+	  color: white;
+	  text-align: center;
+	  padding: 14px 16px;
+	  text-decoration: none;
+	}
+
+	li a:hover {
+	  background-color: #111;
+	}
+
+	header_font {
+	  font-family: "Times New Roman", Times, serif;
+	  font-size: 45px;
+	}
+	header_small_font {
+	  font-family: "Times New Roman", Times, serif;
+	  font-size: 20px;
+	}
+
+	.topnav-right {
+		padding-left: 25px;
+	}
+
+	.table_div {
+		position: relative;
+		height: 50px;
+		width: 200px;
+	}
+
+	.cell_checkbox {
+		position: absolute;
+		top: 30%;
+		left: 0%;
+	}
+
+	.cell_span {
+		position: absolute;
+		float: left;
+		top: 5%;
+		left: 12%;
+	}
+
+	.cell_select {
+		position: absolute;
+		float: left;
+		top: 45%;
+		left: 12%;
+		background-color: inherit;
+	}
+
+	.disabled {
+	  pointer-events:none;
+	  opacity:0.5;
+	}
+
+	a.tooltip-link {
+		background-color: #4271bc; 
+		padding-left:8px; padding-right:8px;
+		padding-top: 5px; padding-bottom: 5px;
+		border-radius: 3px;
+		text-decoration: none;
+	  	color: #FFFFFF;
+	  	font-size: 15px;
+	  	cursor:pointer;
+	}
+
+</style>
+
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="">
+<meta name="author" content="">
+<link rel="shortcut icon" href="images/shutterstock_443040703-1000x480.jpg"/>
+	
+<title>chromEvol</title>
+
+	<script src="js/jquery-3.7.1.min.js"></script>
+	<script src="jquery-csv-master/src/jquery.csv.js"></script>
+    	<script src='js/purl.js'></script>
+	<!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">-->
+	<link href="bootstrap-5.3.3-dist/css/bootstrap.min.css" rel="stylesheet">
+	
+	
+<script>
+
+	var data;
+	var num_data_col;
+	var params_list;
+
+		$(document).ready(function(){
+
+			data = [];
+			
+			params_list = ['_baseNumberR', '_duplConstR', '_gainConstR', '_lossConstR', '_demiPloidyR'];
+			params_list_UI_names = ['Base (monoploid) number addition', 'Duplication', 'Ascending dysploidy', 'Descending dysploidy', 'Duplication by 1.5'];
+
+			num_data_col = 0;
+			
+			LoadParamTable()
+
+			const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+		     	const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+		     	
+			//-------------------------------------------------------------		
+			// Load file of user into Text Area of node dating section:
+			function readTextFile(file, callback, encoding) {
+				var reader = new FileReader();
+				reader.addEventListener('load', function (e) {
+					callback(this.result);
+				});
+				if (encoding) reader.readAsText(file, encoding);
+				else reader.readAsText(file);
+			}
+
+			function fileChosen(input, output) {
+				if (input.files && input.files[0]) {
+					readTextFile(
+						input.files[0],
+						function (str) {
+							output.value = str;
+						}
+					);
+				}
+			}
+
+
+			$('#TreeFile').on('change', function () {
+				fileChosen(this, document.getElementById('TreeFile_txt'));
+			});
+			
+			$('#CountsFile').on('change', function () {
+				fileChosen(this, document.getElementById('CountsFile_txt'));
+			});
+			
+			$('#TraitFile').on('change', function () {
+				fileChosen(this, document.getElementById('TraitFile_txt'));
+			});
+			
+		
+	});
+		
+		
+	$(document).keyup(function(event) {
+	    if ($("#JobToLoadID").is(":focus") && event.key == "Enter") {
+		window.location.href ='/chromevol/results.html?jobId='+document.getElementById('JobToLoadID').value;
+	    }
+	});
+
+
+	$(function () {
+		$("#popover1").popover();
+		$("#popover2").popover();
+		$("#popover3").popover();
+		$("#popover4").popover();
+		$("#popover5").popover();
+		$("#popover6").popover();
+		$("#popover7").popover();
+		$("#popover8").popover();
+		$("#popover9").popover();
+		$("#popover10").popover();
+		$("#popover11").popover();
+		$("#popover12").popover();
+		$("#popover13").popover();
+		$("#popover14").popover();
+		$("#popover15").popover();
+		$("#popover16").popover();
+		$("#popover17").popover();
+	});
+		
+	function selectAll() {
+		var items = ["model_BASE_NUM","model_BASE_NUM_DUPL","model_CONST_RATE","model_CONST_RATE_NO_DUPL","model_CONST_RATE_DEMI","model_CONST_RATE_DEMI_EST"];
+		for (var i = 0; i < items.length; i++) {
+			document.getElementById(items[i]).checked  = true;
+		}
+	}
+
+	function UnSelectAll() {
+		var items = ["model_BASE_NUM","model_BASE_NUM_DUPL","model_CONST_RATE","model_CONST_RATE_NO_DUPL","model_CONST_RATE_DEMI","model_CONST_RATE_DEMI_EST"];
+		for (var i = 0; i < items.length; i++) {
+			document.getElementById(items[i]).checked  = false;
+		}
+	}	
+
+	function eraseInputText() {
+	    document.getElementById("inputText").value = "";
+	}
+	function eraseInputTextCounts() {
+	    $(".inputTextCounts").text = "";
+	}
+
+
+	function handleFileSelect(evt) {
+	    evt.stopPropagation();
+	    evt.preventDefault();
+
+	    var files = evt.dataTransfer.files; // FileList object.
+
+	    // files is a FileList of File objects. List some properties.
+	    var output = [];
+	    for (var i = 0, f; f = files[i]; i++) {
+	      output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+		          f.size, ' bytes, last modified: ',
+		          f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
+		          '</li>');
+	    }
+	    document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
+	  }
+
+	function handleDragOver(evt) {
+	    evt.stopPropagation();
+	    evt.preventDefault();
+	    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+	  }
+
+
+	function validateForm() {	
+		// verify there is input
+		var treeFile				= document.forms["myForm"]["TreeFile"].value;
+		var countsFile					= document.forms["myForm"]["CountsFile"].value;
+		var flag_var = "false";	
+			
+		
+		if ( (treeFile == "") || (countsFile == "")) 
+		{
+			alert('Please enter tree and counts data !!');
+			return false;
+		}
+
+		//remove empty entries
+		data_condensed = []
+		var i;
+		for (i = 0; i < data.length; i++) {
+			if (!data_record_is_empty(data[i])) {
+				data_condensed.push(data[i]);
+			}
+		}
+		
+		//alert(data.length);
+
+		if (data_condensed.length == 0) {
+			alert('Please define at least one model !!');
+			return false;
+		}
+		
+		// JS fix added []
+		document.getElementById('definedModels').value = "["+JSON.stringify(data_condensed).replace(/\\"/g, '"').slice(1, -1)+"]";
+	
+		//alert(document.getElementById('definedModels').value);
+		
+	}
+		
+	$(function(){
+	  $("#header").load("header.html"); 
+	  //$("#footer").load("footer.html"); 
+	});
+
+</script>
+
+</head>
+
+<body>
+
+<div class="content">
+
+	<div id="header"></div>
+	
+	
+	
+	<div class="topnav-right">
+				<br><input type="text" id="JobToLoadID" value="" placeholder="Enter your results ID"/>
+				<a href='' id="LoadJob_button" onclick="this.href='/results.html?jobId='+document.getElementById('JobToLoadID').value">Load previous results</a>
+
+	</div>	
+	
+	<!-- chromEvol_newGUI.cgi testModels.cgi-->
+	<form name="myForm" method="post" action="/cgi-bin/chromevol/chromEvol_trait.cgi" enctype="multipart/form-data" onsubmit="return validateForm()">
+			
+
+			
+
+	<div class = "col-md-12 col-lg-12">
+				
+			<br><br>
+			<div style="text-align:justify"><font face = "serif" size = "5">ChromEvol analyzes changes in chromosome-numbers along a phylogeny and infers polyploidy upon request.<br>
+			Given a phylogeny and chromosome number data, the program infers the locations and types of chromosome number transitions along the tree.<br></font>
+			<br><div style="text-align:justify"><font face = "serif" size = "4" >
+				<span style="font-weight:normal">
+				If you use (1) chromEvol or the (2) model adequacy framework, please use the following citations:<br>
+				(1) Glick, Lior, and Itay Mayrose. "ChromEvol: assessing the pattern of chromosome number evolution and the inference of polyploidy along a phylogeny." Molecular Biology and Evolution 31.7 (2014): 1914-1922. <a href="https://doi.org/10.1093/molbev/msu122" target='_blank'>Abstract</a><br>
+				(2) Rice, Anna, and Itay Mayrose. "Model Adequacy Tests for Probabilistic Models of Chromosome-Number Evolution." New Phytologist (2020). <a href="https://doi.org/10.1111/nph.17106" target='_blank'>Abstract</a>
+				</span></font>
+			</div>
+			<br>
+		
+	</div>	
+
+					
+	<!--<div class = "col-md-12 col-lg-12">--->
+	<div class="row">
+		<div class="col-md-6 col-lg-6">
+			<font face="serif" size="5" color="#4271bc">Load your Tree file:</font>
+			<a id="popover5" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Upload tree file in NEWICK format. The tree should be without node labels.">?</a>
+			<br>
+			<input type="file" id="TreeFile" name="TreeFile" >
+			<textarea id="TreeFile_txt" name="TreeFile_txt" rows=8 cols=50></textarea>
+			<br><br>
+		</div>
+				
+		<div class="col-md-6 col-lg-6">
+			<font face="serif" size="5" color="#4271bc">Load your chromosome counts file:</font>
+			<!--<a id="popover6" data-trigger="hover" 
+				class="btn btn-default transparentBorder fontSize_23px" rel="popover" data-html="true" 
+				data-content="Upload counts data in FASTA format. For example:<br>>TAXON_NAME1<br>5<br>>TAXON_NAME2<br>7">-->
+			<a id="popover6" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Upload counts data in FASTA format. For example:<br>>TAXON_NAME1<br>5<br>>TAXON_NAME2<br>7">?</a>
+			<span class="glyphicon glyphicon-info-sign infoIcon"></span></a><br>
+			<input type="file" id="CountsFile" name="CountsFile" >
+			<textarea id="CountsFile_txt" name="CountsFile_txt" rows=8 cols=50></textarea>
+			<br>
+		</div>
+			
+	</div>
+
+	<script> 
+	$(function(){
+	  $("#includedContent").load("results.html"); 
+	});
+	</script> 
+							
+
+			<div class = "col-md-12 col-lg-12">
+				<div class="col-md-6 col-lg-6">
+				<font face="serif" size="5" color="#4271bc">Match counts to phylogeny:</font>
+				<a id="popover1" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="(1) Remove from the tree taxa without counts data OR (2) Assign the missing taxa with an X in the counts data.<br>NOTE: model adequacy test does not consider missing data.">?</a>
+				<br>
+				<input type="radio" name="PruneCounts" value="PruneTree" id="PruneCounts" class="form-radio" checked="checked"><label for="radio-two">
+				&nbsp&nbsp Remove tips with no counts data</label>
+				<br>
+				<input type="radio" name="PruneCounts" value="Xcounts" id="PruneCounts" class="form-radio"><label for="radio-two">
+				&nbsp&nbsp Assign taxa with no counts as missing data ('X')</label>
+				</div>
+			</div>
+			
+			
+			<div class = "col-md-12 col-lg-12">
+            <br>
+				<font face="serif" size="5" color="#4271bc">Choose Analysis Type:</font>
+				<a id="popover7" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Homogenous,  Time heterogeneous Model or Discrete Trait Model">?</a>
+				<br>				
+				<input type="radio" name="analysisType" id="HomogenusModel" value="Homogenous" class="form-radio" checked="checked" onchange="changedAnalysisType()"><label for="radio-two" >
+				&nbsp&nbsp Homogenous Model</label>
+				<br>
+				<input type="radio" name="analysisType" id="TimeHeterogeneousModel" value="TimeHeterogeneous" class="form-radio" onchange="changedAnalysisType()"><label for="radio-two" >
+				&nbsp&nbsp Time Heterogeneous Model</label>
+				<br>
+				
+				<div id="transitionPointsDiv" class="col-md-6 col-lg-12" style="display:none;">
+					<br>
+					<font face="serif" size="4" color="#4271bc">Identify Transition points:</font>
+					<a id="popover8" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Automatic or User Defined">?</a><br>
+					<input type="radio" name="transitionPoints" id="Automatic" value="Automatic" class="form-radio" checked="checked"><label for="radio-two" >
+					&nbsp&nbsp Automatic</label>
+					<div>
+							&nbsp&nbsp&nbsp&nbsp <label style="width:250px">Max Number of Rate Regimes:</label>
+							<input type="text" id="maxRateRegimes" name="maxRateRegimes" value="1"><br></label>
+							&nbsp&nbsp&nbsp&nbsp <label style="width:250px">Minimum Clade Size:</label>
+							<input type="text" name="minCladeSize" value="5">
+						</div>
+					<br>
+					<input type="radio" name="transitionPoints" id="UserDefined" value="UserDefined" class="form-radio disabled"><label for="radio-two" class="disabled">
+					&nbsp&nbsp UserDefined</label><br><br>
+					
+					
+				</div>
+				
+				<input type="radio" name="analysisType" id="DiscreteTraitModel" value="DiscreteTraitModel" class="form-radio" onchange="changedAnalysisType()"><label for="radio-two" >
+				&nbsp&nbsp Discrete Trait Model</label>
+				<div id="traitModelDiv" class="col-md-6 col-lg-6" style="display:none;">
+					<br>
+					<font face="serif" size="4" color="#4271bc">Load your trait states file:</font>
+					<a id="popover9" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Upload trait states in FASTA format. For example:<br>>TAXON_NAME1<br>1<br>>TAXON_NAME2<br>0">?</a>
+					<span class="glyphicon glyphicon-info-sign infoIcon"></span></a><br>
+					<input type="file" id="TraitFile" name="TraitFile" >
+					<textarea id="TraitFile_txt" name="TraitFile_txt" rows=8 cols=50></textarea>
+					<br>
+					Number of Trait States &nbsp<input type="text" id="numTraitStates" name="numTraitStates" size="1">
+					<a id="popover10" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Number of states in the trait model">?</a>
+					<br><br>
+					Pi parameters &nbsp<input type="text" id="piParams" name="piParams" size="20">
+					<a id="popover11" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Root frequencies per Trait states. Should sum up to 1. Separated by commas">?</a>
+					<br><br>
+					Trait model &nbsp<select onchange="changedTraitModel()" id="traitModel" name="traitModel">"traitModel"
+						<option value="singleRate">singleRate</option>
+						<option value="ratePerEntry">ratePerEntry</option>
+						<option value="ratePerExit">ratePerExit</option>
+						<option value="symPairRate">symPairRate</option>
+						<option value="pairRateModel">pairRateModel</option>
+					</select>
+					<a id="popover12" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="The type of the character model: singleRate, ratePerEntry, ratePerExit, symPairRate, pairRateModel">?</a>
+					<div style="display:block;font-size:14px" id="global_rate_div"> Global rate &nbsp<input type="text" id="global_rate" name="global_rate" size="1"><a id="popover13" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Global rate value">?</a></div>
+					<div style="display:none;font-size:14px" id="entry_rates_div"> List of entry Rates &nbsp<input type="text" id="entry_rates" name="entry_rates" size="20"><a id="popover14" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="List of #trait-states transition parameters separated by commas">?</a></div>
+					<div style="display:none;font-size:14px"id="exit_rates_div"> List of exit Rates &nbsp<input type="text" id="exit_rates" name="exit_rates" size="20"><a id="popover15" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="List of #trait-states transition parameters separated by commas">?</a></div>
+					<div style="display:none;font-size:14px"id="sym_pair_rates_div"> Upload rates per pair &nbsp<input type="text" id="symPair_rates" name="symPair_rates" size="50"><a id="popover16" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="List of symmetric transitions rates _rate_i_j, where j&lti separated by commas. e.g. for #states=3:_rate_0_1=v1,_rate_0_2=v2,_rate_1_2=v3">?</a></div>
+					<div style="display:none;font-size:14px"id="pair_rate_model_div"> Upload Rates per pair &nbsp<input type="text" id="pairRate_rates" name="pairRate_rates" size="50"><a id="popover17" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="No constraints on the transition rates, _rate_i_j, where j!=i separated by commas. e.g. for #states=3:_rate_0_1=v1,_rate_0_2=v2,_rate_1_2=v3,_rate_1_0=v4,_rate_2_0=v5,_rate_2_1=v6">?</a></div>
+					<br>
+					Trait Root frequencies should be set according to: <br>
+					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="rootFrequencies" value="stationaryTraitRootFreqs" class="form-radio" checked="checked"><label for="radio-two" >&nbsp Default (stationary)</label><br>
+					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="rootFrequencies" value="weightedTraitRootFreqs" class="form-radio"><label for="radio-two" >&nbsp Likelihood values</label><br>
+					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="rootFrequencies" value="fixedRootTraitState" class="form-radio"><label for="radio-two" >&nbsp Fixed root value &nbsp</label><input type="text" id="fixedRootValue" name="fixedRootValue" size="1">
+				</div>
+			
+			</div><br>
+
+			<div class = "col-md-12 col-lg-12">
+					<font face="serif" size="5" color="#4271bc">Define models:</font>
+					<a id="popover2" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Select which models to run chromEvol on. Each model is defined by a set of rate parameters. Ascending and descending dysploidies can be executed using constant or linear functions. Click Add model and define its name to load a single model. Click Load default models to use six pre-defined models. The maximal number of evaluated models is six."><span class="glyphicon glyphicon-info-sign infoIcon">?</a>
+					<br>
+					<div id="addModelDiv">
+						<button type="button" onclick="AddModel()" id="addModel">+ Add model</button>
+						<input type="text" id="addModelText" size="6">
+						<button type="button" id="loadDefaultModels" onclick="AddDefaultModel()">Load default models</button>
+						<button type="button" id="clearModels" onclick="ClearModels()">Clear All</button>
+					</div>
+					<div id='paramTable'>
+					</div>
+					<input type="hidden" name="definedModels" id="definedModels" value="value of definedModels">
+				<!--</div>-->
+			</div><br>
+			
+			<div class = "col-md-12 col-lg-12">
+				
+			</div>
+				
+			<div class="col-md-12 col-lg-12">
+				<div class="col-md-6 col-lg-6">
+                <input type="hidden" name="AdeqTest" value='NO' />
+		<input type="checkbox" class="checkmark" onclick='onClickAdequacyText(this)'> <!-- checked="checked"  -->
+                <font face="serif" size="5" color="#4271bc">&nbsp&nbsp Run adequacy test:</font>
+		<a id="popover3" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Select on which models to run model adequacy test:<br>(1) The best selected model (2) One of the models specified by the user (3) All selected models<br>NOTE: running model adequacy on models that include the base-number parameter  performs another round of model optimization and will increase running time"><span class="glyphicon glyphicon-info-sign infoIcon"><span class="glyphicon glyphicon-info-sign infoIcon">?</a>
+				<div style="display:block;" id="AdeqTest_DIV">
+					<input class="testingDataSetCheckBox" type="radio" checked="checked" name="MA_AdequacyTest" id="MA_AdequacyTest11" value='ChromBestModel' onclick="MA_AdequacyTest_chrom()"/>&nbsp;Chromevol best model<br>
+					<input class="testingDataSetCheckBox" type="radio" name="MA_AdequacyTest" id="MA_AdequacyTest22" value='MA_AdequacyTest_user' onclick="MA_AdequacyTest_user()" />&nbsp;Select model<br>
+					<div style="display:none;" id="MA_AdequacyTest_UserDiv">
+						<select type="text" name="MA_userModelSelect" id="MA_userModelSelect" class="form-control" />
+						</select>
+					</div>
+                    <div id="MA_AdequacyTest_AllModels">
+                        <input class="testingDataSetCheckBox" type="radio" name="MA_AdequacyTest" id="MA_AdequacyTest33" value='AllModels'  class="form-radio" onclick="MA_AdequacyTest_all()"/>&nbsp;All models<br><br>
+					</div>
+                   
+                <div style="display:none;" id="MA_AdequacyTest_ChromDiv">
+
+				</div>
+				<!--div style="display:none;" id="MA_AdequacyTest_AllDiv">
+				<select type="text" name="MA_ModelList" id="MA_ModelList" class="form-control" /></select>
+				</div-->
+				</div>	
+				</div>
+			</div>
+
+
+			<div class="col-md-12 col-lg-12">
+					
+					<!--/div-->
+					<!--COMMENTED OUT BY ANNA -- PROBLEM IN PLOIDY INFERENCE (PLOIDY.CSV)-->
+					<div class="col-md-6 col-lg-6">	<font face="serif" size="5" color="#4271bc">
+						<input type="checkbox" name="ploidy_ON" id ="ploidy_ON" value="On" class="checkmark" >&nbsp&nbsp Perform ploidy inference</input>
+						<a id="popover4" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Select if you wish to perform ploidy-level inference of the input taxa. This step is computationally intensive.">?</a><br>
+					</div><br></font>
+					
+			</div>
+			
+			<div class="col-md-12 col-lg-12">			
+				<div class="col-md-6 col-lg-6">	
+					<label for="inputEmail"><font face="serif" size="5" color="#4271bc">Email address for notifications:</font></label>
+					<input type="email" class="form-control" name="inputEmail" placeholder="Enter email" required>
+					<br>
+				</div>
+                
+			</div>
+			
+            <div class="col-md-12 col-lg-12">
+                <div class="col-md-6 col-lg-6">	
+					<label for="jobTitle"><font face="serif" size="5" color="#4271bc">Job Name:</font></label>
+					<input type="text" class="form-control" name="jobTitle" placeholder="Enter Job Name" required>
+				</div>
+            </div>
+            
+			<br>
+			<div class="col-md-12 col-lg-12" style="text-align:left">  
+				<p><input class="submitButton" type="submit" size="7" name="Submit" value="   Submit   " id="submitFormBtn" onsubmit="return validateForm()"></p>
+			</div>  
+
+
+			
+			
+			<div class="col-md-12 col-lg-12" id="phyd3">
+				<br><br>This site is using phyD3, phylogenetic tree viewer based on D3.js http://phyd3.bits.vib.be Copyright (c) BITS VIB 2016
+				
+			</div>
+			<!--div class="col-md-12 col-lg-12">	
+				<br><br>
+				<font face="serif" size="5" color="#4271bc">Select number of Trees:</font>
+				<span class="glyphicon glyphicon-info-sign infoIcon" data-toggle="tooltip" title="Enter the number of trees to select from the input file"></span><br>
+				<input name="NumberOfTrees" type="number" value="1" min="1" max="100" step="1" default=> </input>
+			</div-->	
+ 
+
+
+</div>
+
+   
+
+    <!-- Custom styles for this template -->
+
+	
+	<link rel="stylesheet" type="text/css" media="screen and (min-aspect-ratio: 1/1)" href="/oneTwoTree/css/onetwotree_web.css">
+	<link rel="stylesheet" type="text/css" media="screen and (max-aspect-ratio: 1/1)" href="/oneTwoTree/css/onetwotree_mobile.css">
+
+	<script src="js/googleAnalytics.js"></script>	
+
+
+	</form>
+	
+<script>
+
+	function AddModel() {
+		num_data_col = data.length;
+		data[num_data_col] = { name: '', _baseNumberR: 'IGNORE', _duplConstR: 'IGNORE', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		if (document.getElementById("addModelText").value != "") {
+			data[num_data_col].name = (document.getElementById("addModelText").value).replace(/ /g, "");
+		} else {
+			data[num_data_col].name = 'model'+(num_data_col+1).toString();
+		}
+		document.getElementById("addModelText").value = '';
+		LoadParamTable();
+	}
+
+	function AddDefaultModel() {
+
+		data = [];
+		data[0] = { name: 'DysBnum', _baseNumberR: 'CONST', _duplConstR: 'IGNORE', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		data[1] = { name: 'DysBnumDup', _baseNumberR: 'CONST', _duplConstR: 'CONST', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		data[2] = { name: 'DysDup', _baseNumberR: 'IGNORE', _duplConstR: 'CONST', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		data[3] = { name: 'DysDupDem=', _baseNumberR: 'IGNORE', _duplConstR: 'CONST', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: '_duplConstR'};
+		data[4] = { name: 'DysDupDem', _baseNumberR: 'IGNORE', _duplConstR: 'CONST', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'CONST'};
+		data[5] = { name: 'Dys', _baseNumberR: 'IGNORE', _duplConstR: 'IGNORE', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		num_data_col = 6;
+		
+		LoadParamTable();
+	}
+
+	function AddHeterogeneusModel() {
+
+		data = [];
+		data[0] = { name: 'Background', _baseNumberR: 'CONST', _duplConstR: 'IGNORE', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		num_data_col = 1;
+		
+		LoadParamTable();
+	}
+
+	function AddTraitModel() {
+
+		data = [];
+		data[0] = { name: 'model1', _baseNumberR: 'CONST', _duplConstR: 'IGNORE', _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: 'IGNORE'};
+		num_data_col = 1;
+		
+		LoadParamTable();
+	}
+	
+	function ClearModels() {
+		data = [];
+		num_data_col = 0;
+		LoadParamTable();
+	}
+		
+	function RemoveModel(i) {
+		if (data.length > 0) {
+			data.splice(i,1);
+		}
+		LoadParamTable();
+		
+	}
+
+	function checkTransition(e, i, j) {
+		
+		var disabled;
+		var opacity;
+		var val;
+		if (e.checked) {
+			disabled = false;
+			opacity = 1.0;
+			val = 'CONST';
+		}
+		else {
+			disabled = true;
+			opacity = 0.3;
+			val = 'IGNORE';
+		}
+		var div = e.parentElement;
+		div.disabled = disabled;
+		var nodes = div.getElementsByTagName('*');
+		for(var k = 0; k < nodes.length; k++){
+			if (nodes[k].getAttribute('type') != 'checkbox') {
+				nodes[k].disabled = disabled;
+				nodes[k].style.opacity = opacity;
+			}
+		}
+		
+		switch (j) {
+			case 1: data[i]._baseNumberR = val;
+				break;
+			case 2: data[i]._duplConstR = val;
+				break;
+			case 3: data[i]._gainConstR = val;
+				break;
+			case 4: data[i]._lossConstR = val;
+				break;
+			case 5: data[i]._demiPloidyR = val;
+				break;
+			default: break;
+		}
+		
+		//alert(JSON.stringify(data).replace(/\\"/g, '"').slice(1, -1));
+	}
+
+	function selectParam(e, i, j) {
+		
+		switch (j) {
+			case 1: data[i]._baseNumberR = e.value;
+				break;
+			case 2: data[i]._duplConstR = e.value;
+				break;
+			case 3: data[i]._gainConstR = e.value;
+				break;
+			case 4: data[i]._lossConstR = e.value;
+				break;
+			case 5: data[i]._demiPloidyR = e.value;
+				break;
+			default: break;
+		}
+	}
+
+	function LoadParamTable() {
+			
+			var html = '<table style="table-layout: fixed; width: 100%; background-color: #F9F9F7;" id="myDataTable" name="myDataTable" class="table Tablefont table-responsive table-bordered rerunTable">';
+			
+			num_data_col = data.length + 1;
+			
+			var width_num = ( 88 / num_data_col).toString();
+			//var header_col = (100 - num_data_col*(( 85 / num_data_col))).toString();
+			var header_col = '12%';
+
+			html += '<col align="center" style="width:'+ header_col + ';">';
+			
+			if (num_data_col > 1) { 
+				for (var head_i = 0; head_i < num_data_col-1; head_i++){
+				
+					html += '<col align="center" style="width:' + width_num + '%; ">';
+				}
+
+				html += '<thead><tr bgcolor="#c0c0c0"><td align="center" style="font-size:15px"><span style="font-weight:bold">Transition Type Rate / Model</td></span>';
+				
+				for (var head_i = 0; head_i < num_data_col-1; head_i++){
+					
+					html += '<td align="center" style="font-size:15px; padding-top:5; padding-right:0;">\
+						<div style="position:relative; overflow: auto; height: 100%;">\
+						<span style="font-weight:bold;">'+data[head_i].name +'<div style="position:absolute; top:-6px; right:0px;">\
+						<button type="button" onclick="RemoveModel(' + head_i + ')" style="font-size: 6px;">X</button>\
+						</div></td></span>\
+						</div>'
+				}
+				html += '</thead><tbody>';
+					
+				for (var i = 1; i < 6; i++) {
+					
+					html += '<tr>';
+					
+					html += '<td align="left" style="vertical-align:middle;">'+params_list_UI_names[i-1]+'</td>';
+					
+					for (var head_i = 0; head_i < num_data_col-1; head_i++){
+						
+						switch (i) {
+							case 1: val = data[head_i]._baseNumberR;
+								break;
+							case 2: val = data[head_i]._duplConstR;
+								break;
+							case 3: val = data[head_i]._gainConstR;
+								break;
+							case 4: val = data[head_i]._lossConstR;
+								break;
+							case 5: val = data[head_i]._demiPloidyR;
+								break;
+							default: break;
+						}
+						
+						onchangeArgs = 'this, ' + head_i + ',' + i;
+						checkedStr = '';
+						optionStr = '';
+						selectedStr = '';
+						opacityStr = 'style="opacity: 0.3;"';
+						disabledStr = 'disabled';
+						
+						if (val != 'IGNORE') {
+							checkedStr = 'checked';
+							opacityStr = 'style="opacity: 1.0;"';
+							disabledStr = ''
+							
+						}
+						
+						options = {};
+						options = {
+							"CONST": '<option value="CONST" style="font-size:13px;">constant</option>', 
+							"LINEAR":'<option value="LINEAR" style="font-size:13px;">linear</option>',
+							"LINEAR_BD":'<option value="LINEAR_BD" style="font-size:13px;">linear_bd</option>',
+							"EXP":'<option value="EXP" style="font-size:13px;">exp</option>',
+							"LOGNORMAL":'<option value="LOGNORMAL" style="font-size:13px;">lognormal</option>',
+							"REVERSE_SIGMOID":'<option value="REVERSE_SIGMOID" style="font-size:13px;">reverse_sigmoid</option>',
+							"_baseNumberR":'<option value="_baseNumberR" style="font-size:13px;">=baseNumRate</option>',
+							"_duplConstR":'<option value="_duplConstR" style="font-size:13px;">=duplRate</option>',
+							"_gainConstR":'<option value="_gainConstR" style="font-size:13px;">=gainRate</option>',
+							"_lossConstR":'<option value="_lossConstR" style="font-size:13px;">=lossRate</option>',
+							"_demiPloidyR":'<option value="_demiPloidyR" style="font-size:13px;">=demiPloidyRate<option>'
+						}
+						
+						//set the selected option
+						if (val != 'IGNORE') {
+							options[val] = options[val].replace(">", "selected>")
+						}
+						
+						/*
+						if (params_list[i-1] == '_demiPloidyR') {
+							if (val == '=duplRate') {
+								selectedStr = 'selected';
+							}
+								
+							optionStr = '<option value="=duplRate" ' + selectedStr + '>= dupl. rate</option>';
+						}
+						else if (params_list[i-1] == '_gainConstR' || params_list[i-1] == '_lossConstR') {
+							if (val == 0.5) {
+								selectedStr = 'selected';
+							}
+							
+							optionStr = '<option value="0.5" ' + selectedStr + '>linear</option>';
+						}
+						*/
+						
+						optionStr = ''; //JS removed
+						html += '<td style="height:inherit" align="center">\
+									<div class="table_div" style="font-size:14px;">\
+										<input type="checkbox" class="cell_checkbox" onchange="checkTransition(' + onchangeArgs + ')" ' + checkedStr + '>\
+										<span class="cell_span" ' + opacityStr + '>&nbsp function:</span>\
+										<select class="cell_select" ' + opacityStr + ' onchange="selectParam(' + onchangeArgs + ')" ' + disabledStr + '>';
+						for (const option in options) {
+						    if (params_list[i-1] == option) {
+						    	continue;
+						    }
+						    html += options[option];
+						}
+						html += '<select></div></td>';											
+					} 
+				}
+				if (num_data_col == 7) {
+					document.getElementById("addModel").disabled = true;
+					document.getElementById("addModelText").placeholder = '';
+				}
+				else {
+					document.getElementById("addModel").disabled = false;
+					document.getElementById("addModelText").placeholder = 'model'+ num_data_col.toString();
+				}
+				document.getElementById("clearModels").disabled = false;
+			} 
+			else {
+				document.getElementById("addModel").disabled = false;
+				document.getElementById("clearModels").disabled = true;
+				document.getElementById("addModelText").placeholder = 'model'+ num_data_col.toString();
+			}
+			
+			// close table tags
+			html += '</tbody>';
+			html += '</table>';
+			
+			document.getElementById("paramTable").innerHTML = html;
+			//$('#paramTable').innerHTML = html;
+	}
+
+	function data_record_is_empty(r) {
+		//alert ('hi' + r._baseNumberR + ' ' + r._duplConstR + ' ' + r._gainConstR + ' ' + r._lossConstR + ' ' + r._demiPloidyR);
+		if (r._baseNumberR =='IGNORE' && r._duplConstR =='IGNORE' && r._gainConstR =='IGNORE' && r._lossConstR =='IGNORE' && r._demiPloidyR =='IGNORE') {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	function getFoodItem(){
+	 
+		var list1 = document.getElementById('firstList');
+		var list2 = document.getElementById("secondList");
+		var list1SelectedValue = list1.options[list1.selectedIndex].value;
+		
+		list2.options.length=0;
+		list2.options[0] = new Option('--Select--', '');
+
+
+		if (list1SelectedValue=='Snacks') {
+			//do something
+			//list2.options[1] = new Option('Burger123', 'Burger123');
+			list2.options[2] = new Option('Pizza123', 'Pizza123');
+		} 
+		
+		
+		if (list1SelectedValue=='Snacks')
+		{
+			 
+			//list2.options.length=0;
+			//list2.options[0] = new Option('--Select--', '');
+			//list2.options[1] = new Option('Burger', 'Burger');
+			//list2.options[2] = new Option('Pizza', 'Pizza');
+			list2.options[3] = new Option('Hotdog', 'Hotdog');
+			list2.options[4] = new Option('Potato Chips', 'Potato Chips');
+			list2.options[5] = new Option('French Fries', 'French Fries');
+			 
+		}
+		else if (list1SelectedValue=='Drinks')
+		{
+			 
+			list2.options.length=0;
+			list2.options[0] = new Option('--Select--', '');
+			list2.options[1] = new Option('Coca Cola', 'Coca Cola');
+			list2.options[2] = new Option('7up', '7up');
+			list2.options[3] = new Option('Pepsi', 'Pepsi');
+			list2.options[4] = new Option('Coffee', 'Coffee');
+			list2.options[5] = new Option('Tea', 'Tea');
+			 
+		}
+		
+	}
+
+
+
+
+		
+	//function MA_AdequacyTest_user() {
+	//	var MA_user_div = document.getElementById("MA_AdequacyTest_UserDiv");
+	//	var MA_chrom_div = document.getElementById("MA_AdequacyTest_ChromDiv");
+	//	var MA_all_div = document.getElementById("MA_AdequacyTest_AllDiv");
+	//	MA_user_div.style.display = "block";
+	//	MA_chrom_div.style.display = "none";
+	//	MA_all_div.style.display = "none";
+	//
+	//}
+	
+	function MA_AdequacyTest_chrom() {
+		var MA_user_div = document.getElementById("MA_AdequacyTest_UserDiv");
+		var MA_chrom_div = document.getElementById("MA_AdequacyTest_ChromDiv");
+		//var MA_all_div = document.getElementById("MA_AdequacyTest_AllDiv");
+		MA_user_div.style.display = "none";
+		MA_chrom_div.style.display = "block";
+		//MA_all_div.style.display = "none";
+	
+	}
+	
+	var AdeqDiv = document.getElementById("AdeqTest_DIV");
+	AdeqDiv.style.display = "block";
+	
+    function onClickAdequacyText(cb) {
+	if (cb.checked) {
+	   ShowAdeqTest();
+	}
+	else {
+	   RemoveAdeqTest();
+	}           
+    }
+    
+	function ShowAdeqTest() {
+		var AdeqDiv = document.getElementById("AdeqTest_DIV");
+		//document.getElementById("AdeqTest").value = "On";
+	AdeqDiv.disabled = false;
+	var nodes = AdeqDiv.getElementsByTagName('*');
+	for(var i = 0; i < nodes.length; i++){
+	    nodes[i].disabled = false;
+	}
+	 AdeqDiv.style.opacity = 1.0;
+	 var AdeqTest = document.getElementsByName("AdeqTest"); 
+	 AdeqTest[0].value = "YES";
+	 
+	//AdeqDiv.style.display = "block";
+	}
+	
+	function RemoveAdeqTest() {
+		var AdeqDiv = document.getElementById("AdeqTest_DIV");
+		//document.getElementById("AdeqTest").value = "Off";
+		//AdeqDiv.style.display = "none";
+	AdeqDiv.disabled = true;
+	var nodes = AdeqDiv.getElementsByTagName('*');
+	for(var i = 0; i < nodes.length; i++){
+	    nodes[i].disabled = true;
+	}
+	AdeqDiv.style.opacity = 0.7;
+	var AdeqTest = document.getElementsByName("AdeqTest"); 
+	 AdeqTest[0].value = "NO";
+	}
+	
+	function MA_AdequacyTest_user() {
+
+		//Code for populating dropdown lists:
+		var list1 = document.getElementById('MA_userModelSelect');
+	 	var index=0;
+		list1.options.length=0;
+		list1.options[0] = new Option('--Select--', '');
+		index=index+1;
+
+		var i;
+		for (i = 0; i < num_data_col-1; i++) {
+			model = data[i].name;
+			list1.options[index] = new Option(model, model);
+			index=index+1;
+		}
+		
+		var MA_chrom_div = document.getElementById("MA_AdequacyTest_ChromDiv");
+		var MA_user_div = document.getElementById("MA_AdequacyTest_UserDiv");
+		var MA_all_div = document.getElementById("MA_AdequacyTest_AllDiv");
+		var MA_userMo_div = document.getElementById("MA_userModelSelect");
+		MA_userMo_div.style.display = "block";
+		MA_chrom_div.style.display = "none";
+		MA_user_div.style.display = "block";
+		MA_all_div.style.display = "none";
+	}	
+	
+	function MA_AdequacyTest_all() {
+
+		var MA_user_div = document.getElementById("MA_AdequacyTest_UserDiv");
+		var MA_userMo_div = document.getElementById("MA_userModelSelect");
+		MA_userMo_div.style.display = "none";
+		MA_user_div.style.display = "none";
+		
+	}
+		
+	function changedAnalysisType()
+	{
+		var div_transitionPoints = document.getElementById('transitionPointsDiv');
+		var div_traitModel = document.getElementById('traitModelDiv');
+		if (document.getElementById('HomogenusModel').checked) {
+			div_transitionPoints.style.display = "none";
+			div_traitModel.style.display = "none";
+			ClearModels();
+			document.getElementById("maxRateRegimes").value = '1'; 
+			document.getElementById("addModelDiv").style.display = 'block';
+		}
+		else if (document.getElementById('TimeHeterogeneousModel').checked) {
+			div_transitionPoints.style.display = "block";
+			div_traitModel.style.display = "none";
+			AddHeterogeneusModel();
+			document.getElementById("maxRateRegimes").value = '2';
+			document.getElementById("addModelDiv").style.display = 'none';
+	    		document.getElementById("MA_AdequacyTest_AllModels").style.display = 'none';
+		}
+		else {
+			div_transitionPoints.style.display = "none";
+			div_traitModel.style.display = "block";
+			ClearModels();
+			AddTraitModel();
+			document.getElementById("maxRateRegimes").value = '2';
+			document.getElementById("addModelDiv").style.display = 'none';
+		}
+	}
+	
+	function changedTraitModel()
+	{
+		var trait_model = document.getElementById('traitModel').value;
+		document.getElementById('global_rate_div').style.display = "none";	
+		document.getElementById('entry_rates_div').style.display = "none";
+		document.getElementById('exit_rates_div').style.display = "none";
+		document.getElementById('sym_pair_rates_div').style.display = "none";
+		document.getElementById('pair_rate_model_div').style.display = "none";
+	
+		switch (trait_model) {
+			case ('singleRate'):
+				document.getElementById('global_rate_div').style.display = "block";
+				break;
+			case ('ratePerEntry'):
+				document.getElementById('entry_rates_div').style.display = "block";
+				break;
+			case ('ratePerExit'):
+				document.getElementById('exit_rates_div').style.display = "block";
+				break;
+			case('symPairRate'):
+				document.getElementById('sym_pair_rates_div').style.display = "block";
+				break;
+			case('pairRateModel'):
+				document.getElementById('pair_rate_model_div').style.display = "block";
+				break;
+				
+				
+		}
+	}
+
+</script>
+
+
+	 <br> <br> <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+	 <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+	 <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+	 <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+
+	</div>
+	<script src="bootstrap-5.3.3-dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
+
