@@ -12,7 +12,8 @@ const input = JSON.parse(sessionStorage.getItem('sincopaInput'));
 const fileContents = [
   ['TreesFile.txt', input.tree],
   ['countsFile', input.counts],
-  ['params.txt', input.params]
+  ['params.txt', input.params],
+  [input.nativeFilename, input.nativeParams]
 ];
 const urls = [];
 for (const [name, content] of fileContents) {
