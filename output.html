@@ -26,16 +26,27 @@ const log = document.getElementById('log');
 
 // Replace only native path settings; preserve all model and optimization settings.
 function fixPaths(text) {
+  text = text.replace(/\r\n?/g, '\n');
+
   const paths = {
     _treeFile: '/input/TreesFile.txt',
     _dataFile: '/input/countsFile',
     _resultsPathDir: '/results'
   };
+
   for (const [key, value] of Object.entries(paths)) {
-    const pattern = new RegExp('^\\s*' + key + '\\s*=.*$', 'gm');
-    if (pattern.test(text)) text = text.replace(pattern, key + ' = ' + value);
-    else text += '\n' + key + ' = ' + value + '\n';
+    const pattern = new RegExp(
+      '^[ \\t]*' + key + '[ \\t]*=[^\\n]*$',
+      'gm'
+    );
+
+    if (pattern.test(text)) {
+      text = text.replace(pattern, key + ' = ' + value);
+    } else {
+      text += '\n' + key + ' = ' + value + '\n';
+    }
   }
+
   return text;
 }
 function linkFile(listId, name, bytes) {
