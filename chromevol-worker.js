@@ -26,7 +26,7 @@ self.onmessage = async ({data}) => {
         FS.mkdirTree('/results');
         FS.writeFile('/input/TreesFile.txt', data.tree);
         FS.writeFile('/input/countsFile', data.counts);
-        FS.writeFile('/input/params.txt', data.params);
+        FS.writeFile('/input/params.txt', data.params.replace(/\r\n?/g, '\n'));
         FS.chdir('/input');
         // One command-line argument, matching the Python executable call.
         code = callMain(['param=/input/params.txt']);
