@@ -1,0 +1,19 @@
+_topologyNum:100
+_simNum:100
+_baseNum:0
+_ploidyCallType:"DUPL DEMI BASE"
+_cpusNum:0
+_ploidyModelsOnly:1
+_runModels:"ALL"
+_excludeModels:0
+_plot:0
+_fixRoot:0
+_name:"chromEvol"
+_bOptBaseNumber:0
+_maxChrNum:-1
+_minChrNum:-1
+_branchMul:999
+_gainConstR:1
+_lossConstR:1
+_baseNumber:-999
+_duplModelsOnly:1
