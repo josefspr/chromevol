@@ -1,4 +1,4 @@
-// The six default models.
+// Six default models. Only the first is used for native parameters.
 const definitions = [
   ['DysBnum', 'CONST', 'IGNORE', 'IGNORE'],
   ['DysBnumDup', 'CONST', 'CONST', 'IGNORE'],
@@ -20,35 +20,63 @@ const models = definitions.map(([name, base, duplication, demi]) => ({
 document.getElementById('models').value =
   JSON.stringify(models, null, 2);
 
+
+// Read colon-separated default settings.
+function readDefaults(text) {
+  return Object.fromEntries(
+    text.split(/\r?\n/)
+      .filter(line => line.trim())
+      .map(line => {
+        const separator = line.indexOf(':');
+
+        return [
+          line.slice(0, separator).trim(),
+          line.slice(separator + 1).trim()
+        ];
+      })
+  );
+}
+
+
 // Create native parameters for the first model.
-function createParams(template, model, countsText) {
-  // Match find_MinMax(..., 4): integer counts >= 4.
-  const counts = Object.values(Object.fromEntries(
+function createParams(template, model, countsText, defaults) {
+  // Match find_MinMax(..., 4):
+  // use only integer FASTA counts >= 4 for the base number.
+  const countsBySpecies = Object.fromEntries(
     countsText.split('>').slice(1).map(record => {
-      const lines = record.trim().split(/\r?\n/)
+      const lines = record.trim()
+        .split(/\r?\n/)
         .filter(line => line.trim());
 
       return [lines[0], lines[1].trim()];
     })
-  ))
+  );
+
+  const counts = Object.values(countsBySpecies)
     .filter(value => /^\d+$/.test(value) && Number(value) >= 4)
     .map(Number);
 
   const baseNumber = Math.min(...counts);
+  const maxCount = Math.max(...counts);
+  const fixRoot = Number(defaults._fixRoot);
+
+  // Match the existing server behavior:
+  // Python reads _fixRoot as a string, so its == 0 check fails.
+  const maxChrNum = maxCount > fixRoot ? -10 : fixRoot + 1;
 
   const replacements = {
     '<OUT_DIR>': '/input/ChromEvol_Tree_1/' + model.name,
     '<CNT_FILE>': '/input/countsFile',
     '<TREE_FILE>': '/input/TreesFile.txt',
-    '<MAX_CHR_NUM>': '-1',
+    '<MAX_CHR_NUM>': String(maxChrNum),
     '<MIN_CHR_NUM>': '-1',
     '<MIN_CLADE_SIZE>': '5',
     '<IS_HETEROGENEOUS>': 'false',
     '<MAX_NUM_MODELS>': '1'
   };
 
-  for (const [key, value] of Object.entries(replacements)) {
-    template = template.split(key).join(value);
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    template = template.split(placeholder).join(value);
   }
 
   const functions = {
@@ -67,7 +95,7 @@ function createParams(template, model, countsText) {
     _demiPloidyR: '_demiPloidyR'
   };
 
-  const values = {
+  const initialValues = {
     CONST: '1',
     LINEAR: '2,0.1',
     LINEAR_BD: '1',
@@ -80,13 +108,15 @@ function createParams(template, model, countsText) {
   const assigned = {};
   let index = 1;
 
+  // Add independent parameters in the model's JSON order.
   for (const [transition, func] of Object.entries(model)) {
     if (transition === 'name') continue;
 
     if (func === 'IGNORE') {
       lines.push(functions[transition] + ' = IGNORE');
-    } else if (Object.hasOwn(values, func)) {
-      assigned[transition] = index++ + ';' + values[func];
+    } else if (Object.hasOwn(initialValues, func)) {
+      assigned[transition] =
+        index++ + ';' + initialValues[func];
 
       lines.push(
         functions[transition] + ' = ' + func,
@@ -94,14 +124,19 @@ function createParams(template, model, countsText) {
       );
 
       if (transition === '_baseNumberR') {
-        lines.push('_baseNum_1 = ' + index++ + ';' + baseNumber);
+        lines.push(
+          '_baseNum_1 = ' + index++ + ';' + baseNumber
+        );
       }
     }
   }
 
-  // Shared rates reuse their source parameter.
+  // Shared rates reuse their source parameter index and values.
   for (const [transition, source] of Object.entries(model)) {
-    if (transition !== 'name' && Object.hasOwn(assigned, source)) {
+    if (
+      transition !== 'name' &&
+      Object.hasOwn(assigned, source)
+    ) {
       lines.push(
         functions[transition] + ' = ' + model[source],
         parameters[transition] + '_1 = ' + assigned[source]
@@ -114,47 +149,85 @@ function createParams(template, model, countsText) {
     lines.join('\n') + '\n';
 }
 
+
 // Create the original wrapper-style params.txt.
-function createWrapperParams(definedModels) {
-  return [
-    'analysisType:Homogenous',
-    'NumberOfTrees:1',
-    'TreesDirArr:/input/ChromEvol_Tree_1,',
-    'AdeqTest:NO',
-    'definedModels:' + definedModels.replace(/\r?\n\s*/g, ''),
-    '_treesFile:/input/TreesFile.txt',
-    '_dataFile:/input/countsFile',
-    '_outDir:/input/chromevol_out',
-    '_name:browser_run',
-    '_cpusNum:1'
-  ].join('\n') + '\n';
+// Submitted settings override defaults without duplicate keys.
+function createWrapperParams(definedModels, defaults) {
+  const settings = {
+    ...defaults,
+    analysisType: 'Homogenous',
+    NumberOfTrees: '1',
+    TreesDirArr: '/input/ChromEvol_Tree_1,',
+    AdeqTest: 'NO',
+    definedModels: JSON.stringify(JSON.parse(definedModels)),
+    _treesFile: '/input/TreesFile.txt',
+    _dataFile: '/input/countsFile',
+    _outDir: '/input/chromevol_out',
+    _name: 'browser_run',
+    _cpusNum: '1'
+  };
+
+  return Object.entries(settings)
+    .map(([key, value]) => key + ':' + value)
+    .join('\n') + '\n';
 }
 
+
+// Load a configuration or template file from the same folder.
+async function loadText(filename) {
+  const response = await fetch(filename, {
+    cache: 'no-store'
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      'Could not load ' + filename +
+      ' (HTTP ' + response.status + ')'
+    );
+  }
+
+  return response.text();
+}
+
+
+// Read inputs, generate both parameter files, and open output.html.
 document.getElementById('inputForm')
   .addEventListener('submit', async event => {
     event.preventDefault();
 
-    const [tree, counts, template] = await Promise.all([
-      document.getElementById('tree').files[0].text(),
-      document.getElementById('counts').files[0].text(),
-      fetch('param_NEW_MODELS_anat.txt').then(response => {
-        if (!response.ok) {
-          throw new Error('Could not load param_NEW_MODELS_anat.txt');
-        }
-        return response.text();
-      })
-    ]);
+    try {
+      const [tree, counts, template, defaultsText] =
+        await Promise.all([
+          document.getElementById('tree').files[0].text(),
+          document.getElementById('counts').files[0].text(),
+          loadText('param_NEW_MODELS_anat.txt'),
+          loadText('DEFAULT_PARAM_VALUES.txt')
+        ]);
 
-    const definedModels = document.getElementById('models').value;
-    const firstModel = JSON.parse(definedModels)[0];
+      const defaults = readDefaults(defaultsText);
+      const definedModels =
+        document.getElementById('models').value;
+      const firstModel = JSON.parse(definedModels)[0];
 
-    sessionStorage.setItem('sincopaInput', JSON.stringify({
-      tree,
-      counts,
-      params: createWrapperParams(definedModels),
-      nativeParams: createParams(template, firstModel, counts),
-      nativeFilename: 'param_' + firstModel.name + '.txt'
-    }));
+      sessionStorage.setItem(
+        'sincopaInput',
+        JSON.stringify({
+          tree,
+          counts,
+          params: createWrapperParams(definedModels, defaults),
+          nativeParams: createParams(
+            template,
+            firstModel,
+            counts,
+            defaults
+          ),
+          nativeFilename: 'param_' + firstModel.name + '.txt'
+        })
+      );
 
-    window.location.href = 'output.html';
+      window.location.href = 'output.html';
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    }
   });
