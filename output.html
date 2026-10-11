@@ -1,40 +1,119 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>Sincopa — input files</title>
-<style>body{font:16px system-ui;max-width:850px;margin:40px auto;padding:0 20px}li{margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:20px}</style>
+<title>Sincopa — input and results</title>
+<style>body{font:16px system-ui;max-width:950px;margin:40px auto;padding:0 20px}li{margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:420px;overflow:auto}button{padding:10px;margin:5px}</style>
 <h1>Input files</h1>
 <ul id="files"></ul>
+<button id="run">Run chromEvol — first model</button>
+<button id="stop" disabled>Stop</button>
+<p id="status">Ready.</p>
+<h2>Run log</h2>
+<pre id="log"></pre>
+<h2>Results</h2>
+<ul id="results"></ul>
+<h2 id="previewTitle" hidden>File contents</h2>
 <pre id="preview" hidden></pre>
 <p><a href="index.html">Prepare another input</a></p>
 <script>
 const input = JSON.parse(sessionStorage.getItem('sincopaInput'));
-const fileContents = [
-  ['TreesFile.txt', input.tree],
-  ['countsFile', input.counts],
-  ['params.txt', input.params],
-  [input.nativeFilename, input.nativeParams]
-];
 const urls = [];
-for (const [name, content] of fileContents) {
-  const url = URL.createObjectURL(new Blob([content], {type: 'text/plain;charset=utf-8'}));
+let worker;
+const run = document.getElementById('run');
+const stop = document.getElementById('stop');
+const status = document.getElementById('status');
+const log = document.getElementById('log');
+
+// Replace only native path settings; preserve all model and optimization settings.
+function fixPaths(text) {
+  const paths = {
+    _treeFile: '/input/TreesFile.txt',
+    _dataFile: '/input/countsFile',
+    _resultsPathDir: '/results'
+  };
+  for (const [key, value] of Object.entries(paths)) {
+    const pattern = new RegExp('^\\s*' + key + '\\s*=.*$', 'gm');
+    if (pattern.test(text)) text = text.replace(pattern, key + ' = ' + value);
+    else text += '\n' + key + ' = ' + value + '\n';
+  }
+  return text;
+}
+function linkFile(listId, name, bytes) {
+  const url = URL.createObjectURL(new Blob([bytes], {type: 'application/octet-stream'}));
   urls.push(url);
   const row = document.createElement('li');
   const view = document.createElement('a');
   view.href = url;
-  view.textContent = 'Display ' + name;
-  view.addEventListener('click', event => {
+  view.textContent = name;
+  view.onclick = event => {
     event.preventDefault();
+    document.getElementById('previewTitle').hidden = false;
+    document.getElementById('previewTitle').textContent = name;
     document.getElementById('preview').hidden = false;
-    document.getElementById('preview').textContent = content;
-  });
+    document.getElementById('preview').textContent =
+      typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
+  };
   const download = document.createElement('a');
   download.href = url;
-  download.download = name;
+  download.download = name.split('/').pop();
   download.textContent = 'Download';
   row.append(view, ' — ', download);
-  document.getElementById('files').append(row);
+  document.getElementById(listId).append(row);
 }
-window.addEventListener('pagehide', () => urls.forEach(url => URL.revokeObjectURL(url)));
+function finish() {
+  if (worker) worker.terminate();
+  worker = undefined;
+  run.disabled = false;
+  stop.disabled = true;
+}
+if (!input || !input.nativeParams) {
+  status.textContent = 'Open index.html and create both parameter files first.';
+  run.disabled = true;
+} else {
+  input.nativeParams = fixPaths(input.nativeParams);
+  for (const [name, content] of [
+    ['TreesFile.txt', input.tree], ['countsFile', input.counts],
+    ['params.txt', input.params],
+    [input.nativeFilename || 'param_first_model.txt', input.nativeParams]
+  ]) linkFile('files', name, content);
+}
+run.onclick = () => {
+  run.disabled = true;
+  stop.disabled = false;
+  log.textContent = '';
+  document.getElementById('results').replaceChildren();
+  status.textContent = 'Loading WASM and running chromEvol…';
+  try {
+    worker = new Worker('chromevol-worker.js');
+    worker.onerror = event => {
+      status.textContent = 'Failed: ' + event.message;
+      finish();
+    };
+    worker.onmessage = ({data}) => {
+      if (data.type === 'log') {
+        log.textContent += data.text + '\n';
+        log.scrollTop = log.scrollHeight;
+      } else if (data.type === 'error') {
+        status.textContent = data.text;
+        finish();
+      } else if (data.type === 'done') {
+        for (const file of data.files) linkFile('results', file.name, file.bytes);
+        linkFile('results', 'browser-run.log', log.textContent);
+        status.textContent = data.error ? 'Run failed: ' + data.error :
+          'Finished (exit code ' + data.code + '). Generated ' + data.files.length + ' files.';
+        finish();
+      }
+    };
+    worker.postMessage({tree: input.tree, counts: input.counts, params: input.nativeParams});
+  } catch (error) {
+    status.textContent = String(error);
+    finish();
+  }
+};
+stop.onclick = () => { finish(); status.textContent = 'Stopped.'; };
+window.addEventListener('pagehide', () => {
+  if (worker) worker.terminate();
+  urls.forEach(url => URL.revokeObjectURL(url));
+});
 </script>
 </html>
