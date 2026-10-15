@@ -157,6 +157,122 @@ function showSummary(files) {
   }
 }
 
+// Homogeneous, no-ploidy equivalent of convert_to_PhyD3().
+function convert_to_PhyD3(newick, countsText) {
+  const counts = new Map();
+  let taxon;
+  for (const raw of countsText.split(/\r\n?|\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith('>')) taxon = line.slice(1).trim();
+    else if (taxon !== undefined) counts.set(taxon, line);
+  }
+  const text = newick.trim();
+  let position = 0;
+  function whitespace() { while (/\s/.test(text[position] || '') && position < text.length) position++; }
+  function label() {
+    whitespace();
+    if (text[position] === "'") {
+      position++;
+      let value = '';
+      while (position < text.length) {
+        const character = text[position++];
+        if (character === "'") {
+          if (text[position] === "'") { value += "'"; position++; }
+          else return value;
+        } else value += character;
+      }
+      throw new Error('Unclosed quoted Newick label.');
+    }
+    const start = position;
+    while (position < text.length && !/[\s(),:;\[\]]/.test(text[position])) position++;
+    return text.slice(start, position);
+  }
+  function comment() {
+    position++;
+    let depth = 1, value = '';
+    while (position < text.length && depth) {
+      const character = text[position++];
+      if (character === '[') depth++;
+      if (character === ']') depth--;
+      if (depth) value += character;
+    }
+    if (depth) throw new Error('Unclosed Newick comment.');
+    return value.trim();
+  }
+  function subtree() {
+    whitespace();
+    const node = {name: '', children: []};
+    if (text[position] === '(') {
+      position++;
+      node.children.push(subtree());
+      whitespace();
+      while (text[position] === ',') { position++; node.children.push(subtree()); whitespace(); }
+      if (text[position++] !== ')') throw new Error('Missing Newick closing parenthesis.');
+    }
+    node.name = label();
+    while (position < text.length) {
+      whitespace();
+      if (text[position] === '[') {
+        const annotation = comment();
+        // chromEvol can put ancestral node names in bracket comments.
+        if (!node.name && /^N\d+(?:-\d+)?$/.test(annotation)) node.name = annotation;
+      } else if (text[position] === ':') {
+        position++;
+        whitespace();
+        const match = text.slice(position).match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);
+        if (!match) throw new Error('Invalid Newick branch length.');
+        node.length = match[0];
+        position += match[0].length;
+      } else break;
+    }
+    return node;
+  }
+  const root = subtree();
+  whitespace();
+  if (text[position] === ';') position++;
+  whitespace();
+  if (position !== text.length) throw new Error('Unexpected content after the Newick tree.');
+  function xml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
+    })[character]);
+  }
+  function clade(node, depth) {
+    const indent = '  '.repeat(depth);
+    const lines = [indent + '<clade>'];
+    if (node.name) {
+      // Remove only chromEvol's numeric count suffix, preserving taxon hyphens.
+      const name = counts.has(node.name) ? node.name : node.name.replace(/-\d+$/, '');
+      lines.push(indent + '  <name>' + xml(name) + '</name>');
+      lines.push(indent + '  <chrom>' + xml(counts.get(name) ?? ' - ') + '</chrom>');
+    }
+    if (node.length !== undefined) lines.push(indent + '  <branch_length>' + node.length + '</branch_length>');
+    for (const child of node.children) lines.push(clade(child, depth + 1));
+    lines.push(indent + '</clade>');
+    return lines.join('\n');
+  }
+  // labels/chrom are the PhyD3 extensions used by the original Python function.
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<phyloxml xmlns="http://www.phyloxml.org">\n' +
+    '  <phylogeny rooted="false">\n' +
+    '    <labels>\n' +
+    '      <label type="text"><name show="1">Chromosome Count</name><data tag="chrom"/></label>\n' +
+    '      <label type="color"><name>Color label</name><data tag="colortag"/></label>\n' +
+    '    </labels>\n' + clade(root, 2) + '\n' +
+    '  </phylogeny>\n</phyloxml>\n';
+}
+function addPhyloXml(files) {
+  const tree = files.find(file => file.name === 'MLAncestralReconstruction.tree');
+  if (!tree) return;
+  try {
+    const newick = typeof tree.bytes === 'string' ? tree.bytes : new TextDecoder().decode(tree.bytes);
+    linkFile('results', 'MLAncestralReconstruction_phylo.xml', convert_to_PhyD3(newick, input.counts));
+  } catch (error) {
+    log.textContent += 'PhyloXML conversion failed: ' + error.message + '\n';
+  }
+}
+
 function finish() {
   if (worker) worker.terminate();
   worker = undefined;
@@ -199,6 +315,7 @@ run.onclick = () => {
       } else if (data.type === 'done') {
         for (const file of data.files) linkFile('results', file.name, file.bytes);
         showSummary(data.files);
+        addPhyloXml(data.files);
         linkFile('results', 'browser-run.log', log.textContent);
         status.textContent = data.error ? 'Run failed: ' + data.error :
           'Finished (exit code ' + data.code + '). Generated ' + data.files.length + ' files.';
