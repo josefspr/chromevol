@@ -5,16 +5,16 @@
     <title>ML ancestral reconstruction — PhyD3</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
-    <link rel="stylesheet" href="phyd3-master/libs/css/bootstrap-material-design.min.css">
+    <link rel="stylesheet" href="phyd3_master/libs/css/bootstrap-material-design.min.css" />
     <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/icon?family=Material+Icons">
-    <link rel="stylesheet" href="phyd3-master/libs/css/vib.css">
-    <link rel="stylesheet" href="phyd3-master/dist/css/phyd3.css">
+    <link rel="stylesheet" href="phyd3_master/libs/css/vib.css" />
+    <link rel="stylesheet" href="phyd3_master/dist/css/phyd3.css" />
     <script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
     <script src="https://d3js.org/d3.v3.min.js"></script>
-    <script src="phyd3-master/libs/js/material.min.js"></script>
+    <script src="phyd3_master/libs/js/material.min.js"></script>
 
-    <script src="phyd3-master/dist/js/phyd3.min.js"></script>
+    <script src="phyd3_master/dist/js/phyd3.min.js" type="text/javascript"></script>
     <script>
         var opts = {
             dynamicHide: true,
@@ -47,9 +47,11 @@
             const status = document.getElementById('viewerStatus');
             try {
                 if (!window.jQuery || !window.d3 || !window.phyd3) {
-                    throw new Error('Viewer dependencies are missing. Copy the original libs/ and dist/ folders alongside view_ml.html.');
+                    throw new Error('Viewer dependencies are missing. Check phyd3_master/libs/ and phyd3_master/dist/ beside view_ml.html.');
                 }
-                const xmlText = sessionStorage.getItem('sincopaMLPhyloXML');
+                const key = new URLSearchParams(location.search).get('key') || 'sincopaMLPhyloXML';
+                const xmlText = sessionStorage.getItem(key);
+                document.querySelector('h2').textContent = 'ML ancestral reconstruction — ' + (new URLSearchParams(location.search).get('model') || 'first model');
                 if (!xmlText) throw new Error('Run chromEvol from output.html first to generate the ML tree.');
                 const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
                 if (xml.getElementsByTagName('parsererror').length) throw new Error('The generated XML could not be parsed.');

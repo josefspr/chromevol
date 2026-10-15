@@ -7,9 +7,9 @@
 <form id="inputForm" novalidate>
 <label>Tree file <input id="tree" type="file"></label>
 <label>Chromosome counts file <input id="counts" type="file"></label>
-<label>Defined models (editable JSON; only the first model is used)<textarea id="models"></textarea></label>
-<p>Place param_NEW_MODELS_anat in this folder before running.</p>
-<button>Create native params.txt for first model</button>
+<label>Defined models (editable JSON; all models will run)<textarea id="models"></textarea></label>
+<p>The included param_NEW_MODELS_anat.txt supplies the parameter template.</p>
+<button>Create parameter files for all models</button>
 </form>
-<script src="prepare.js"></script>
+<script src="prepare.js?v=all-models-1"></script>
 </html>

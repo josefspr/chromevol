@@ -1,42 +1,31 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>Sincopa — input and results</title>
-<style>body{font:16px system-ui;max-width:950px;margin:40px auto;padding:0 20px}li{margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:420px;overflow:auto}button{padding:10px;margin:5px}table{border-collapse:collapse;width:100%;max-width:700px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f3f3f3}</style>
-<h1>Input files</h1>
-<ul id="files"></ul>
-<button id="run">Run chromEvol — first model</button>
-<button id="stop" disabled>Stop</button>
-<p id="status">Ready.</p>
-<h2>Run log</h2>
-<pre id="log"></pre>
-<section id="summarySection" hidden>
-<h2>Homogeneous model summary</h2>
-<p id="summaryModel"></p>
-<p>Final optimized parameters from chromEvol.res. “−” means the parameter was not reported. Rates are rounded to two decimal places.</p>
-<table><thead><tr><th scope="col">Parameter</th><th scope="col" id="summaryModelHeader">Value</th></tr></thead><tbody id="summaryRows"></tbody></table>
-</section>
-<p id="summaryNotice" role="status"></p>
-<h2>Results</h2>
-<ul id="results"></ul>
-<section id="mlViewerSection" hidden>
-<h2>ML tree viewer</h2>
-<p><a href="view_ml.html">Open full-size PhyD3 viewer</a></p>
-<div id="mlViewer"></div>
-</section>
-<h2 id="previewTitle" hidden>File contents</h2>
-<pre id="preview" hidden></pre>
+<title>Sincopa — model comparison</title>
+<style>body{font:16px system-ui;max-width:1200px;margin:35px auto;padding:0 20px}li{margin:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:400px;overflow:auto}button{padding:10px;margin:5px}table{border-collapse:collapse;width:100%}td,th{padding:10px;border:1px solid #ddd;text-align:left;white-space:nowrap}th{background:#f3f3f3}.scroll{overflow-x:auto}.best{background:#edf7ee}section{margin-top:24px}.note{color:#555}</style>
+<h1>Homogeneous models</h1>
+<details><summary>Input and parameter files</summary><ul id="files"></ul></details>
+<button id="run">Run all defined models</button><button id="stop" disabled>Stop</button>
+<p id="status" role="status">Ready.</p>
+<h2>Model summary</h2>
+<p id="comparisonNote" class="note">Models will be sorted by AICc, best first. Rates are rounded to two decimal places.</p>
+<div class="scroll"><table id="summaryTable"></table></div>
+<details><summary>Run log</summary><pre id="log"></pre></details>
+<h2>Model outputs</h2><div id="modelOutputs"></div>
+<h2 id="previewTitle" hidden>File contents</h2><pre id="preview" hidden></pre>
 <p><a href="index.html">Prepare another input</a></p>
 <script>
 const input = JSON.parse(sessionStorage.getItem('sincopaInput'));
-const urls = [];
-let worker;
-const run = document.getElementById('run');
-const stop = document.getElementById('stop');
+const nativeFiles = input?.nativeFiles || [];
+const runButton = document.getElementById('run');
+const stopButton = document.getElementById('stop');
 const status = document.getElementById('status');
 const log = document.getElementById('log');
-
-// Replace only native path settings; preserve all model and optimization settings.
+const results = [];
+const urls = [];
+const xmlKeys = [];
+let worker, cancelled = false, busy = false;
+let rejectCurrent;
 function fixPaths(text) {
   text = text.replace(/\r\n?/g, "\n");
   const paths = {
@@ -51,31 +40,6 @@ function fixPaths(text) {
   }
   return text;
 }
-function linkFile(listId, name, bytes) {
-  const url = URL.createObjectURL(new Blob([bytes], {type: 'application/octet-stream'}));
-  urls.push(url);
-  const row = document.createElement('li');
-  const view = document.createElement('a');
-  view.href = url;
-  view.textContent = name;
-  view.onclick = event => {
-    event.preventDefault();
-    document.getElementById('previewTitle').hidden = false;
-    document.getElementById('previewTitle').textContent = name;
-    document.getElementById('preview').hidden = false;
-    document.getElementById('preview').textContent =
-      typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
-  };
-  const download = document.createElement('a');
-  download.href = url;
-  download.download = name.split('/').pop();
-  download.textContent = 'Download';
-  row.append(view, ' — ', download);
-  document.getElementById(listId).append(row);
-}
-
-// Port of the homogeneous, one-regime branch of summarize_results().
-// Only read the final parameter section, never initial/intermediate estimates.
 function summarizeHomogeneous(text) {
   let finalSection = false;
   let regimeCount = 1;
@@ -129,40 +93,6 @@ function summarizeHomogeneous(text) {
     ['AICc', values.aicc === undefined ? '-' : Number(values.aicc).toFixed(4)]
   ];
 }
-function showSummary(files) {
-  const result = files.find(file => file.name === 'chromEvol.res');
-  const notice = document.getElementById('summaryNotice');
-  if (!result) {
-    notice.textContent = 'No chromEvol.res was generated; a summary is not available.';
-    return;
-  }
-  try {
-    const text = typeof result.bytes === 'string' ? result.bytes : new TextDecoder().decode(result.bytes);
-    const rows = summarizeHomogeneous(text);
-    const body = document.getElementById('summaryRows');
-    body.replaceChildren();
-    for (const [label, value] of rows) {
-      const row = document.createElement('tr');
-      const heading = document.createElement('th');
-      heading.scope = 'row';
-      heading.textContent = label;
-      const cell = document.createElement('td');
-      cell.textContent = value;
-      row.append(heading, cell);
-      body.append(row);
-    }
-    document.getElementById('summaryModel').textContent =
-      'Model: ' + (input.nativeFilename || 'first model').replace(/^param_/, '').replace(/\.txt$/, '');
-    document.getElementById('summaryModelHeader').textContent =
-      (input.nativeFilename || 'first model').replace(/^param_/, '').replace(/\.txt$/, '');
-    document.getElementById('summarySection').hidden = false;
-    notice.textContent = '';
-  } catch (error) {
-    notice.textContent = 'Summary unavailable: ' + error.message;
-  }
-}
-
-// Homogeneous, no-ploidy equivalent of convert_to_PhyD3().
 function convert_to_PhyD3(newick, countsText) {
   const counts = new Map();
   let taxon;
@@ -267,92 +197,189 @@ function convert_to_PhyD3(newick, countsText) {
     '    </labels>\n' + clade(root, 2) + '\n' +
     '  </phylogeny>\n</phyloxml>\n';
 }
-function addPhyloXml(files) {
-  const tree = files.find(file => file.name === 'MLAncestralReconstruction.tree');
-  if (!tree) return;
-  try {
-    const newick = typeof tree.bytes === 'string' ? tree.bytes : new TextDecoder().decode(tree.bytes);
-    const xml = convert_to_PhyD3(newick, input.counts);
-    linkFile('results', 'MLAncestralReconstruction_phylo.xml', xml);
+function textOf(bytes) {
+  return typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
+}
+function linkFile(parent, name, bytes, label = name) {
+  const url = URL.createObjectURL(new Blob([bytes], {type:'application/octet-stream'}));
+  urls.push(url);
+  const row = document.createElement('li');
+  const display = document.createElement('a');
+  display.href = url;
+  display.textContent = label;
+  display.onclick = event => {
+    event.preventDefault();
+    document.getElementById('previewTitle').hidden = false;
+    document.getElementById('previewTitle').textContent = name;
+    document.getElementById('preview').hidden = false;
+    document.getElementById('preview').textContent = textOf(bytes);
+  };
+  const download = document.createElement('a');
+  download.href = url; download.download = name; download.textContent = 'Download';
+  row.append(display, ' — ', download); parent.append(row);
+}
+function parseRun(model, files, error) {
+  const record = {...model, files, error, aicc:null, summary:null};
+  const res = files.find(file => file.name === 'chromEvol.res');
+  if (res) {
     try {
-      sessionStorage.setItem('sincopaMLPhyloXML', xml);
-      const section = document.getElementById('mlViewerSection');
-      section.hidden = false;
-      const frame = document.createElement('iframe');
-      frame.src = 'view_ml.html';
-      frame.title = 'PhyD3 ML ancestral reconstruction';
-      frame.style.cssText = 'width:100%;height:1100px;border:1px solid #ddd';
-      document.getElementById('mlViewer').replaceChildren(frame);
-    } catch (viewerError) {
-      log.textContent += 'Tree download is ready, but viewer could not open: ' + viewerError.message + '\n';
+      const text = textOf(res.bytes);
+      record.summary = summarizeHomogeneous(text);
+      const matches = [...text.matchAll(/^\s*AICc of the best model\s*=\s*([+\-\d.eE]+)\s*$/gm)];
+      const value = Number(matches.at(-1)?.[1]);
+      // Failed runs remain visible, but do not enter the model ranking.
+      if (!error && Number.isFinite(value)) record.aicc = value;
+    } catch (parseError) {
+      record.error = [error, 'Summary: ' + parseError.message].filter(Boolean).join('; ');
     }
-  } catch (error) {
-    log.textContent += 'PhyloXML conversion failed: ' + error.message + '\n';
+  }
+  return record;
+}
+function orderedResults() {
+  return [...results].sort((a,b) =>
+    (a.aicc ?? Infinity) - (b.aicc ?? Infinity) || a.id - b.id);
+}
+function renderResults() {
+  const sorted = orderedResults();
+  const best = sorted.find(record => record.aicc !== null)?.aicc;
+  const table = document.getElementById('summaryTable');
+  table.replaceChildren();
+  if (!sorted.length) return;
+  const thead = document.createElement('thead'), header = document.createElement('tr');
+  const parameter = document.createElement('th'); parameter.textContent = 'Parameter'; header.append(parameter);
+  sorted.forEach((record,index) => {
+    const th = document.createElement('th'); th.scope = 'col';
+    th.textContent = record.modelName + (index === 0 && record.aicc !== null ? (busy ? ' (best so far)' : ' (best)') : '');
+    if (index === 0 && record.aicc !== null) th.className = 'best';
+    header.append(th);
+  });
+  thead.append(header); table.append(thead);
+  const labels = ['Base (monoploid) number addition','Duplication','Ascending dysploidy',
+    'Duplication by 1.5','Descending dysploidy','Base (monoploid) number','ΔAICc from best model'];
+  const tbody = document.createElement('tbody');
+  labels.forEach((label,index) => {
+    const row = document.createElement('tr'), th = document.createElement('th');
+    th.scope = 'row'; th.textContent = label; row.append(th);
+    sorted.forEach(record => {
+      const td = document.createElement('td');
+      td.textContent = index === 6 ? (record.aicc === null ? '-' : (record.aicc - best).toFixed(4)) :
+        (record.summary?.[index]?.[1] ?? '-');
+      row.append(td);
+    });
+    tbody.append(row);
+  });
+  table.append(tbody);
+  document.getElementById('comparisonNote').textContent = busy ?
+    'Comparison of completed models; the best model may change while remaining models run.' :
+    'Best model first (lowest AICc). ΔAICc = model AICc − best AICc. Unreported parameters are shown as −.';
+  // Rebuild just these four output entries for each model.
+  const outputs = document.getElementById('modelOutputs'); outputs.replaceChildren();
+  // Revoke links made for the previous results rendering; keep input links intact.
+  for (const url of resultUrls) URL.revokeObjectURL(url);
+  resultUrls.length = 0;
+  for (const record of sorted) {
+    const section = document.createElement('section'), title = document.createElement('h3');
+    title.textContent = record.modelName; section.append(title);
+    if (record.error) {
+      const message = document.createElement('p'); message.textContent = 'Run failed: ' + record.error; section.append(message);
+    }
+    const list = document.createElement('ul');
+    for (const filename of ['chromEvol.res','MLAncestralReconstruction_phylo.xml','ancestorsProbs.txt','expectations_second_round.txt']) {
+      if (filename.endsWith('.xml')) {
+        const row = document.createElement('li');
+        if (record.xmlKey) {
+          const link = document.createElement('a');
+          link.href = 'view_ml.html?key=' + encodeURIComponent(record.xmlKey) + '&model=' + encodeURIComponent(record.modelName);
+          // A new same-origin tab copies the XML session storage for this model.
+          link.target = '_blank'; link.rel = 'opener';
+          link.textContent = 'ML Ancestor Tree'; row.append(link);
+        } else row.textContent = 'ML Ancestor Tree — unavailable';
+        list.append(row);
+      } else {
+        const file = record.files.find(item => item.name === filename);
+        if (file) {
+          const before = urls.length;
+          linkFile(list, filename, file.bytes);
+          resultUrls.push(...urls.splice(before));
+        } else {
+          const row = document.createElement('li');row.textContent = filename + ' — not generated';list.append(row);
+        }
+      }
+    }
+    section.append(list); outputs.append(section);
   }
 }
-
-function finish() {
-  if (worker) worker.terminate();
-  worker = undefined;
-  run.disabled = false;
-  stop.disabled = true;
-}
-if (!input || !input.nativeParams) {
-  status.textContent = 'Open index.html and create both parameter files first.';
-  run.disabled = true;
-} else {
-  input.nativeParams = fixPaths(input.nativeParams);
-  for (const [name, content] of [
-    ['TreesFile.txt', input.tree], ['countsFile', input.counts],
-    ['params.txt', input.params],
-    [input.nativeFilename || 'param_first_model.txt', input.nativeParams]
-  ]) linkFile('files', name, content);
-}
-run.onclick = () => {
-  run.disabled = true;
-  stop.disabled = false;
-  log.textContent = '';
-  document.getElementById('mlViewerSection').hidden = true;
-  document.getElementById('mlViewer').replaceChildren();
-  sessionStorage.removeItem('sincopaMLPhyloXML');
-  document.getElementById('summarySection').hidden = true;
-  document.getElementById('summaryRows').replaceChildren();
-  document.getElementById('summaryNotice').textContent = '';
-  document.getElementById('results').replaceChildren();
-  status.textContent = 'Loading WASM and running chromEvol…';
-  try {
+const resultUrls = [];
+function executeModel(model) {
+  return new Promise((resolve,reject) => {
+    rejectCurrent = reject;
     worker = new Worker('chromevol-worker.js');
-    worker.onerror = event => {
-      status.textContent = 'Failed: ' + event.message;
-      finish();
-    };
+    worker.onerror = event => reject(new Error(event.message));
     worker.onmessage = ({data}) => {
       if (data.type === 'log') {
-        log.textContent += data.text + '\n';
-        log.scrollTop = log.scrollHeight;
-      } else if (data.type === 'error') {
-        status.textContent = data.text;
-        finish();
-      } else if (data.type === 'done') {
-        for (const file of data.files) linkFile('results', file.name, file.bytes);
-        showSummary(data.files);
-        addPhyloXml(data.files);
-        linkFile('results', 'browser-run.log', log.textContent);
-        status.textContent = data.error ? 'Run failed: ' + data.error :
-          'Finished (exit code ' + data.code + '). Generated ' + data.files.length + ' files.';
-        finish();
-      }
+        log.textContent += '[' + model.modelName + '] ' + data.text + '\n'; log.scrollTop = log.scrollHeight;
+      } else if (data.type === 'error') reject(new Error(data.text));
+      else if (data.type === 'done') resolve(data);
     };
-    worker.postMessage({tree: input.tree, counts: input.counts, params: input.nativeParams});
-  } catch (error) {
-    status.textContent = String(error);
-    finish();
+    worker.postMessage({tree:input.tree,counts:input.counts,params:fixPaths(model.params)});
+  });
+}
+function clearRunData() {
+  for (const key of xmlKeys) sessionStorage.removeItem(key);
+  xmlKeys.length = 0;
+}
+runButton.onclick = async () => {
+  cancelled = false; busy = true; runButton.disabled = true; stopButton.disabled = false;
+  results.length = 0; clearRunData(); log.textContent = '';
+  document.getElementById('summaryTable').replaceChildren();
+  document.getElementById('modelOutputs').replaceChildren();
+  document.getElementById('preview').hidden = true;
+  document.getElementById('previewTitle').hidden = true;
+  const runId = Date.now().toString(36);
+  for (const [index,model] of nativeFiles.entries()) {
+    if (cancelled) break;
+    status.textContent = 'Running ' + (index+1) + '/' + nativeFiles.length + ': ' + model.modelName;
+    let record;
+    try {
+      const data = await executeModel(model);
+      const error = data.error || (data.code !== 0 ? 'Exit code ' + data.code : undefined);
+      record = parseRun(model,data.files || [],error);
+      const tree = record.files.find(file => file.name === 'MLAncestralReconstruction.tree');
+      if (tree) {
+        try {
+          const xml = convert_to_PhyD3(textOf(tree.bytes),input.counts);
+          const key = 'sincopaMLPhyloXML:' + runId + ':' + index;
+          sessionStorage.setItem(key,xml); xmlKeys.push(key); record.xmlKey = key;
+        } catch (error) { log.textContent += '[' + model.modelName + '] Tree conversion/viewer: ' + error.message + '\n'; }
+      }
+    } catch (error) {
+      if (cancelled) break;
+      record = parseRun(model,[],error.message);
+    } finally {
+      worker?.terminate(); worker = undefined; rejectCurrent = undefined;
+    }
+    results.push(record); renderResults();
   }
+  busy = false; renderResults();
+  runButton.disabled = false; stopButton.disabled = true;
+  const failures = results.filter(record => record.error).length;
+  status.textContent = (cancelled ? 'Stopped. ' : 'Finished. ') + results.length + '/' + nativeFiles.length +
+    ' models completed' + (failures ? '; ' + failures + ' failed.' : '.');
 };
-stop.onclick = () => { finish(); status.textContent = 'Stopped.'; };
+stopButton.onclick = () => {
+  cancelled = true; worker?.terminate(); rejectCurrent?.(new Error('Stopped'));
+};
+if (!nativeFiles.length) {
+  status.textContent = 'Open index.html and submit again with the updated prepare.js to create parameters for all models.';
+  runButton.disabled = true;
+} else {
+  const list = document.getElementById('files');
+  for (const [name,content] of [['TreesFile.txt',input.tree],['countsFile',input.counts],['params.txt',input.params]]) linkFile(list,name,content);
+  for (const model of nativeFiles) linkFile(list,model.filename,fixPaths(model.params));
+}
 window.addEventListener('pagehide', () => {
-  if (worker) worker.terminate();
-  urls.forEach(url => URL.revokeObjectURL(url));
+  worker?.terminate();
+  [...urls,...resultUrls].forEach(url => URL.revokeObjectURL(url));
 });
 </script>
 </html>
