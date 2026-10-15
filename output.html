@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <title>Sincopa — input and results</title>
-<style>body{font:16px system-ui;max-width:950px;margin:40px auto;padding:0 20px}li{margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:420px;overflow:auto}button{padding:10px;margin:5px}</style>
+<style>body{font:16px system-ui;max-width:950px;margin:40px auto;padding:0 20px}li{margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:420px;overflow:auto}button{padding:10px;margin:5px}table{border-collapse:collapse;width:100%;max-width:700px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f3f3f3}</style>
 <h1>Input files</h1>
 <ul id="files"></ul>
 <button id="run">Run chromEvol — first model</button>
@@ -10,6 +10,13 @@
 <p id="status">Ready.</p>
 <h2>Run log</h2>
 <pre id="log"></pre>
+<section id="summarySection" hidden>
+<h2>Homogeneous model summary</h2>
+<p id="summaryModel"></p>
+<p>Final optimized parameters from chromEvol.res. “na” means the parameter was not reported.</p>
+<table><thead><tr><th scope="col">Parameter</th><th scope="col">Value</th></tr></thead><tbody id="summaryRows"></tbody></table>
+</section>
+<p id="summaryNotice" role="status"></p>
 <h2>Results</h2>
 <ul id="results"></ul>
 <h2 id="previewTitle" hidden>File contents</h2>
@@ -26,27 +33,17 @@ const log = document.getElementById('log');
 
 // Replace only native path settings; preserve all model and optimization settings.
 function fixPaths(text) {
-  text = text.replace(/\r\n?/g, '\n');
-
+  text = text.replace(/\r\n?/g, "\n");
   const paths = {
     _treeFile: '/input/TreesFile.txt',
     _dataFile: '/input/countsFile',
     _resultsPathDir: '/results'
   };
-
   for (const [key, value] of Object.entries(paths)) {
-    const pattern = new RegExp(
-      '^[ \\t]*' + key + '[ \\t]*=[^\\n]*$',
-      'gm'
-    );
-
-    if (pattern.test(text)) {
-      text = text.replace(pattern, key + ' = ' + value);
-    } else {
-      text += '\n' + key + ' = ' + value + '\n';
-    }
+    const pattern = new RegExp('^[ \t]*' + key + '[ \t]*=[^\\n]*$', 'gm');
+    if (pattern.test(text)) text = text.replace(pattern, key + ' = ' + value);
+    else text += '\n' + key + ' = ' + value + '\n';
   }
-
   return text;
 }
 function linkFile(listId, name, bytes) {
@@ -71,6 +68,84 @@ function linkFile(listId, name, bytes) {
   row.append(view, ' — ', download);
   document.getElementById(listId).append(row);
 }
+
+// Port of the homogeneous, one-regime branch of summarize_results().
+// Only read the final parameter section, never initial/intermediate estimates.
+function summarizeHomogeneous(text) {
+  let finalSection = false;
+  let regimeCount = 1;
+  const values = {};
+  const numeric = '[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?';
+  const ratePattern = new RegExp(
+    '^Chromosome\\.(baseNumR|dupl|gain|demi|loss)([01])_1\\s*=\\s*(' + numeric + ')\\s*$'
+  );
+  const basePattern = new RegExp('^Chromosome\\.baseNum_1\\s*=\\s*(' + numeric + ')\\s*$');
+  for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
+    const line = raw.trim();
+    if (line.includes('Best chosen model') || line.includes('Final model parameters are:')) {
+      finalSection = true;
+    }
+    if (line.includes('Previous best chosen models in the forward phase')) finalSection = false;
+    const regimes = line.match(/Number of models in the best model\s*=\s*(\d+)/);
+    if (regimes) regimeCount = Number(regimes[1]);
+    if (!finalSection || line.startsWith('#')) continue;
+    const rate = line.match(ratePattern);
+    if (rate) values[rate[1] + rate[2]] = rate[3];
+    const base = line.match(basePattern);
+    if (base) values.baseNum = base[1];
+  }
+  if (regimeCount !== 1) throw new Error('Summary currently supports one homogeneous regime only.');
+  if (Object.keys(values).length === 0) throw new Error('No final homogeneous parameters found in chromEvol.res.');
+  function rateValue(key) {
+    // Match Python's linear formatting for gain and loss.
+    if ((key === 'gain' || key === 'loss') && values[key + '1'] !== undefined) {
+      if (values[key + '0'] === undefined) return 'na';
+      const slope = Number(values[key + '1']).toFixed(2);
+      const intercept = Number(values[key + '0']).toFixed(2);
+      return slope + 'x' + (intercept === '0.00' ? '' : ' + ' + intercept);
+    }
+    return values[key + '0'] ?? 'na';
+  }
+  return [
+    ['Base (monoploid) number addition', rateValue('baseNumR')],
+    ['Duplication', rateValue('dupl')],
+    ['Ascending dysploidy', rateValue('gain')],
+    ['Duplication by 1.5', rateValue('demi')],
+    ['Descending dysploidy', rateValue('loss')],
+    ['Base (monoploid) number', values.baseNum ?? 'na']
+  ];
+}
+function showSummary(files) {
+  const result = files.find(file => file.name === 'chromEvol.res');
+  const notice = document.getElementById('summaryNotice');
+  if (!result) {
+    notice.textContent = 'No chromEvol.res was generated; a summary is not available.';
+    return;
+  }
+  try {
+    const text = typeof result.bytes === 'string' ? result.bytes : new TextDecoder().decode(result.bytes);
+    const rows = summarizeHomogeneous(text);
+    const body = document.getElementById('summaryRows');
+    body.replaceChildren();
+    for (const [label, value] of rows) {
+      const row = document.createElement('tr');
+      const heading = document.createElement('th');
+      heading.scope = 'row';
+      heading.textContent = label;
+      const cell = document.createElement('td');
+      cell.textContent = value;
+      row.append(heading, cell);
+      body.append(row);
+    }
+    document.getElementById('summaryModel').textContent =
+      'Model: ' + (input.nativeFilename || 'first model').replace(/^param_/, '').replace(/\.txt$/, '');
+    document.getElementById('summarySection').hidden = false;
+    notice.textContent = '';
+  } catch (error) {
+    notice.textContent = 'Summary unavailable: ' + error.message;
+  }
+}
+
 function finish() {
   if (worker) worker.terminate();
   worker = undefined;
@@ -92,6 +167,9 @@ run.onclick = () => {
   run.disabled = true;
   stop.disabled = false;
   log.textContent = '';
+  document.getElementById('summarySection').hidden = true;
+  document.getElementById('summaryRows').replaceChildren();
+  document.getElementById('summaryNotice').textContent = '';
   document.getElementById('results').replaceChildren();
   status.textContent = 'Loading WASM and running chromEvol…';
   try {
@@ -109,6 +187,7 @@ run.onclick = () => {
         finish();
       } else if (data.type === 'done') {
         for (const file of data.files) linkFile('results', file.name, file.bytes);
+        showSummary(data.files);
         linkFile('results', 'browser-run.log', log.textContent);
         status.textContent = data.error ? 'Run failed: ' + data.error :
           'Finished (exit code ' + data.code + '). Generated ' + data.files.length + ' files.';
