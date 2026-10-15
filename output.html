@@ -19,6 +19,11 @@
 <p id="summaryNotice" role="status"></p>
 <h2>Results</h2>
 <ul id="results"></ul>
+<section id="mlViewerSection" hidden>
+<h2>ML tree viewer</h2>
+<p><a href="view_ml.html">Open full-size PhyD3 viewer</a></p>
+<div id="mlViewer"></div>
+</section>
 <h2 id="previewTitle" hidden>File contents</h2>
 <pre id="preview" hidden></pre>
 <p><a href="index.html">Prepare another input</a></p>
@@ -267,7 +272,20 @@ function addPhyloXml(files) {
   if (!tree) return;
   try {
     const newick = typeof tree.bytes === 'string' ? tree.bytes : new TextDecoder().decode(tree.bytes);
-    linkFile('results', 'MLAncestralReconstruction_phylo.xml', convert_to_PhyD3(newick, input.counts));
+    const xml = convert_to_PhyD3(newick, input.counts);
+    linkFile('results', 'MLAncestralReconstruction_phylo.xml', xml);
+    try {
+      sessionStorage.setItem('sincopaMLPhyloXML', xml);
+      const section = document.getElementById('mlViewerSection');
+      section.hidden = false;
+      const frame = document.createElement('iframe');
+      frame.src = 'view_ml.html';
+      frame.title = 'PhyD3 ML ancestral reconstruction';
+      frame.style.cssText = 'width:100%;height:1100px;border:1px solid #ddd';
+      document.getElementById('mlViewer').replaceChildren(frame);
+    } catch (viewerError) {
+      log.textContent += 'Tree download is ready, but viewer could not open: ' + viewerError.message + '\n';
+    }
   } catch (error) {
     log.textContent += 'PhyloXML conversion failed: ' + error.message + '\n';
   }
@@ -294,6 +312,9 @@ run.onclick = () => {
   run.disabled = true;
   stop.disabled = false;
   log.textContent = '';
+  document.getElementById('mlViewerSection').hidden = true;
+  document.getElementById('mlViewer').replaceChildren();
+  sessionStorage.removeItem('sincopaMLPhyloXML');
   document.getElementById('summarySection').hidden = true;
   document.getElementById('summaryRows').replaceChildren();
   document.getElementById('summaryNotice').textContent = '';

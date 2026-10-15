@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+    <title>archaeopteryx</title>
+
+    <!-- For MS IE/Edge compatibility:-->
+    <meta http-equiv="X-UA-Compatible" content="IE=100">
+
+    <!-- D3.js, jQuery, and jQuery UI:-->
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js"></script>
+ 
+    <!-- SAX XML parser:-->
+    <script src="http://www.phyloxml.org/js/dependencies/sax.js"></script>
+
+    <!-- The following five libraries are needed for download/export of images and files:-->
+    <script src="http://www.phyloxml.org/js/dependencies/rgbcolor.js"></script>
+    <script src="http://www.phyloxml.org/js/dependencies/Blob.js"></script>
+    <script src="http://www.phyloxml.org/js/dependencies/canvas-toBlob.js"></script>
+    <script src="http://www.phyloxml.org/js/dependencies/canvg.js"></script>
+    <script src="http://www.phyloxml.org/js/dependencies/FileSaver.js"></script>
+
+    <!-- Archaeopteryx.js requires forester.js and phyloxml_parser.js:-->
+    <script src="http://www.phyloxml.org/js/phyloxml_0_912.js"></script>
+    <script src="http://www.phyloxml.org/js/forester_1_8.js"></script>
+    <script src="http://www.phyloxml.org/js/archaeopteryx_1_8.js"></script>
+
+    <!-- CSS for jQuery UI: -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.0/themes/base/jquery-ui.css">
+
+    <!-- CSS for this page's HTML: -->
+    <link rel="stylesheet" href="http://www.phyloxml.org/css/forester.css">
+
+    <script>
+
+        function load() {
+
+            var options = {};
+            options.alignPhylogram = true;
+            options.branchColorDefault = "#000000"; //'#909090';
+            options.branchDataFontSize = 6;
+            options.branchWidthDefault = 1;
+            options.collapasedLabelLength = 7;
+            options.dynahide = true;
+            options.externalNodeFontSize = 12;
+            options.internalNodeFontSize = 12;
+            options.minBranchLengthValueToShow = 0.01;
+            options.minConfidenceValueToShow = 0.5;
+            options.nodeSizeDefault = 2;
+            options.phylogram = true;
+            options.searchIsCaseSensitive = false;
+            options.searchIsPartial = true;
+            options.searchUsesRegex = false;
+            options.showBranchEvents = true;
+            options.showBranchLengthValues = false;
+            options.showConfidenceValues = true;
+            options.showDisributions = true;
+            options.showExternalLabels = true;
+            options.showExternalNodes = true;
+            options.showInternalLabels = true;
+            options.showInternalNodes = false;
+            options.showNodeEvents = true;
+            options.showNodeName = true;
+            options.showSequence = true;
+            options.showSequenceAccession = true;
+            options.showSequenceGeneSymbol = true;
+            options.showSequenceName = true;
+            options.showSequenceSymbol = true;
+            options.showTaxonomy = true;
+            options.showTaxonomyCode = true;
+            options.showTaxonomyCommonName = true;
+            options.showTaxonomyRank = true;
+            options.showTaxonomyScientificName = true;
+            options.showTaxonomySynonyms = true;
+            options.backgroundColorDefault = '#f5f5f5'; /*#ffffff'*/
+
+            var settings = {};
+            
+            settings.border = '1px solid #909090';
+            settings.controls0Top = 10;
+            settings.enableDownloads = true;
+            settings.enableBranchVisualizations = false;
+            settings.enableCollapseByBranchLenghts = false;
+            settings.enableCollapseByFeature = true;
+            settings.enableNodeVisualizations = false;
+            settings.nhExportWriteConfidences = true;
+            settings.rootOffset = 140;
+            
+            
+            //var loc = 'bcl_2.xml';
+            var pid = getParameterByName('pid');        //'1656314425';//
+            var model = getParameterByName('model');    //'Background'; 
+            var fid = pid + '/ChromEvol_Tree_1/' + model;
+            var loc = "results/" + fid + "/tree_shifting_nodes.xml";
+          
+            jQuery.get(loc,
+                    function (data) {
+                        var tree = null;
+                        try {
+                            tree = archaeopteryx.parsePhyloXML(data);
+                            /*if (loc.substr(-3, 3) === 'xml') {
+                                tree = archaeopteryx.parsePhyloXML(data);
+                            }
+                            else {
+                                tree = archaeopteryx.parseNewHampshire(data);
+                            }*/
+                        }
+                        catch (e) {
+                            alert("error while parsing tree: " + e);
+                        }
+                        if (tree) {
+                            try {
+                                archaeopteryx.launch('#phylogram1', tree, options, settings);
+                            }
+                            catch (e) {
+                                alert("error while launching archaeopteryx: " + e);
+                            }
+                        }
+                    },
+                    "text")
+                    .fail(function () {
+                        alert("error: failed to read tree(s) from \"" + loc + "\"");
+                    });
+        }
+        
+        function getParameterByName(name, url = window.location.href) {
+            name = name.replace(/[\[\]]/g, '\\$&');
+            var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+                results = regex.exec(url);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, ' '));
+        }
+        
+    </script>
+
+
+</head>
+
+<body onload="load()">
+
+<div>
+    <br>
+    </p>
+    <p>
+        <div style="background-color:#f5f5f5" id='phylogram1'></div>
+        <div id='controls0' class='ui-widget-content' style="display:none"></div>
+    </p>
+</div>
+
+</body>
