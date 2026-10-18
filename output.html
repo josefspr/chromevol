@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <title>Sincopa — model comparison</title>
 <style>body{font:16px system-ui;max-width:1200px;margin:35px auto;padding:0 20px}li{margin:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:400px;overflow:auto}button{padding:10px;margin:5px}table{border-collapse:collapse;width:100%}td,th{padding:10px;border:1px solid #ddd;text-align:left;white-space:nowrap}th{background:#f3f3f3}.scroll{overflow-x:auto}.best{background:#edf7ee}section{margin-top:24px}.note{color:#555}</style>
-<h1>Homogeneous models</h1>
+<h1>chromEvol model results</h1>
 <details><summary>Input and parameter files</summary><ul id="files"></ul></details>
 <button id="run">Run all defined models</button><button id="stop" disabled>Stop</button>
 <p id="status" role="status">Ready.</p>
@@ -40,59 +40,58 @@ function fixPaths(text) {
   }
   return text;
 }
-function summarizeHomogeneous(text) {
+// Parse only the chosen final model, excluding earlier forward-phase models.
+function summarizeResults(text) {
   let finalSection = false;
-  let regimeCount = 1;
-  const values = {};
-  const functions = {};
-  const numeric = '[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?';
-  const ratePattern = new RegExp(
-    '^Chromosome\\.(baseNumR|dupl|gain|demi|loss)([01])_1\\s*=\\s*(' + numeric + ')\\s*$'
-  );
-  const basePattern = new RegExp('^Chromosome\\.baseNum_1\\s*=\\s*(' + numeric + ')\\s*$');
-  for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
+  const result = {regimeCount:1, regimes:[], aicc:null};
+  const functions = {}, values = {}, roots = {};
+  for (const raw of text.replace(/\r\n?/g,'\n').split('\n')) {
     const line = raw.trim();
     const func = line.match(/^(baseNumR|dupl|gain|demi|loss):\s*(\w+)/);
-    if (func) functions[func[1]] = func[2];
-    const aicc = line.match(/^AICc of the best model\s*=\s*(.+)$/);
-    if (aicc) values.aicc = aicc[1].trim();
-    if (line.includes('Best chosen model') || line.includes('Final model parameters are:')) {
-      finalSection = true;
+    if (func && !finalSection) functions[func[1]] = func[2];
+    if (line.includes('Previous best chosen models in the forward phase')) break;
+    if (line.includes('Best chosen model') || line.includes('Final model parameters are:')) finalSection = true;
+    if (!finalSection) continue;
+    const count = line.match(/^Number of models in the best model\s*=\s*(\d+)/);
+    if (count) result.regimeCount = Number(count[1]);
+    const root = line.match(/^#?\s*Model\s*\$?(\d+)\s*=\s*(.+)$/);
+    if (root) roots[root[1]] = root[2];
+    const aic = line.match(/^AICc of the best model(?: with (\d+) shifts)?\s*=\s*([+\-\d.eE]+)\s*$/);
+    if (aic && (aic[1] === undefined || Number(aic[1])+1 === result.regimeCount)) {
+      const number = Number(aic[2]); if (Number.isFinite(number)) result.aicc = number;
     }
-    if (line.includes('Previous best chosen models in the forward phase')) finalSection = false;
-    const regimes = line.match(/Number of models in the best model\s*=\s*(\d+)/);
-    if (regimes) regimeCount = Number(regimes[1]);
-    if (!finalSection || line.startsWith('#')) continue;
-    const rate = line.match(ratePattern);
-    if (rate) values[rate[1] + rate[2]] = rate[3];
-    const base = line.match(basePattern);
-    if (base) values.baseNum = base[1];
-  }
-  if (regimeCount !== 1) throw new Error('Summary currently supports one homogeneous regime only.');
-  if (Object.keys(values).length === 0) throw new Error('No final homogeneous parameters found in chromEvol.res.');
-  function rateValue(key) {
-    // Match Python's linear formatting for gain and loss.
-    if ((key === 'gain' || key === 'loss') && values[key + '1'] !== undefined) {
-      if (values[key + '0'] === undefined) return '-';
-      const slope = Number(values[key + '1']).toFixed(2);
-      const intercept = Number(values[key + '0']).toFixed(2);
-      return 'LINEAR:' + slope + 'x' + (intercept === '0.00' ? '' : ' + ' + intercept);
+    if (line.startsWith('#')) continue;
+    const rate = line.match(/^Chromosome\.(baseNumR|dupl|gain|demi|loss)(\d+)_(\d+)\s*=\s*([+\-\d.eE]+)\s*$/);
+    if (rate) {
+      const regime = values[rate[3]] ||= {};
+      (regime[rate[1]] ||= {})[rate[2]] = rate[4];
     }
-    const value = values[key + '0'];
-    if (value === undefined) return '-';
-    const formatted = Number(value).toFixed(2);
-    return functions[key] === 'CONST' ? 'CONST:' + formatted : formatted;
+    const base = line.match(/^Chromosome\.baseNum_(\d+)\s*=\s*([+\-\d.eE]+)\s*$/);
+    if (base) (values[base[1]] ||= {}).baseNum = base[2];
   }
-  return [
-    ['Base (monoploid) number addition', rateValue('baseNumR')],
-    ['Duplication', rateValue('dupl')],
-    ['Ascending dysploidy', rateValue('gain')],
-    ['Duplication by 1.5', rateValue('demi')],
-    ['Descending dysploidy', rateValue('loss')],
-    ['Base (monoploid) number', values.baseNum ?? '-'],
-    ['AICc', values.aicc === undefined ? '-' : Number(values.aicc).toFixed(4)]
-  ];
+  if (!Object.keys(values).length) throw new Error('No final model parameters found in chromEvol.res.');
+  result.regimeCount = Math.max(result.regimeCount,...Object.keys(values).map(Number));
+  for (let index=1;index<=result.regimeCount;index++) {
+    const regime = values[index] || {};
+    function rateValue(key) {
+      const coefficients = regime[key];
+      if (!coefficients || coefficients[0] === undefined) return '-';
+      const func = functions[key];
+      if ((key==='gain'||key==='loss') && coefficients[1] !== undefined) {
+        const slope=Number(coefficients[1]).toFixed(2),intercept=Number(coefficients[0]).toFixed(2);
+        return 'LINEAR:' + slope + 'x' + (intercept==='0.00'?'':' + '+intercept);
+      }
+      // Retain every coefficient for nonconstant functions rather than dropping it.
+      const formatted = Object.keys(coefficients).sort((a,b)=>Number(a)-Number(b))
+        .map(key=>Number(coefficients[key]).toFixed(2)).join(', ');
+      return func && func!=='IGNORE' ? func+':'+formatted : formatted;
+    }
+    result.regimes.push({index, name:index===1?'Background':'Shift '+(index-1), root:roots[index]||'-',
+      rows:[rateValue('baseNumR'),rateValue('dupl'),rateValue('gain'),rateValue('demi'),rateValue('loss'),regime.baseNum??'-']});
+  }
+  return result;
 }
+
 function convert_to_PhyD3(newick, countsText) {
   const counts = new Map();
   let taxon;
@@ -219,18 +218,14 @@ function linkFile(parent, name, bytes, label = name) {
   row.append(display, ' — ', download); parent.append(row);
 }
 function parseRun(model, files, error) {
-  const record = {...model, files, error, aicc:null, summary:null};
+  const record = {...model, files, error, summaryError:null, aicc:null, parsed:null};
   const res = files.find(file => file.name === 'chromEvol.res');
   if (res) {
     try {
-      const text = textOf(res.bytes);
-      record.summary = summarizeHomogeneous(text);
-      const matches = [...text.matchAll(/^\s*AICc of the best model\s*=\s*([+\-\d.eE]+)\s*$/gm)];
-      const value = Number(matches.at(-1)?.[1]);
-      // Failed runs remain visible, but do not enter the model ranking.
-      if (!error && Number.isFinite(value)) record.aicc = value;
+      record.parsed = summarizeResults(textOf(res.bytes));
+      if (!error) record.aicc = record.parsed.aicc;
     } catch (parseError) {
-      record.error = [error, 'Summary: ' + parseError.message].filter(Boolean).join('; ');
+      record.summaryError = parseError.message;
     }
   }
   return record;
@@ -241,74 +236,83 @@ function orderedResults() {
 }
 function renderResults() {
   const sorted = orderedResults();
-  const best = sorted.find(record => record.aicc !== null)?.aicc;
-  const table = document.getElementById('summaryTable');
-  table.replaceChildren();
+  const best = sorted.find(record=>record.aicc!==null)?.aicc;
+  const table = document.getElementById('summaryTable'); table.replaceChildren();
   if (!sorted.length) return;
-  const thead = document.createElement('thead'), header = document.createElement('tr');
-  const parameter = document.createElement('th'); parameter.textContent = 'Parameter'; header.append(parameter);
-  sorted.forEach((record,index) => {
-    const th = document.createElement('th'); th.scope = 'col';
-    th.textContent = record.modelName + (index === 0 && record.aicc !== null ? (busy ? ' (best so far)' : ' (best)') : '');
-    if (index === 0 && record.aicc !== null) th.className = 'best';
+  const multipleRegimes = sorted.some(record=>(record.parsed?.regimes.length||1)>1);
+  const thead=document.createElement('thead'),header=document.createElement('tr');
+  const parameter=document.createElement('th');parameter.textContent='Parameter';parameter.scope='col';
+  if (multipleRegimes) parameter.rowSpan=2;
+  header.append(parameter);
+  sorted.forEach((record,index)=>{
+    const th=document.createElement('th');th.scope='colgroup';
+    th.colSpan=record.parsed?.regimes.length||1;
+    th.textContent=record.modelName+(index===0&&record.aicc!==null?(busy?' (best so far)':' (best)'):'');
+    if(index===0&&record.aicc!==null)th.className='best';
     header.append(th);
   });
-  thead.append(header); table.append(thead);
-  const labels = ['Base (monoploid) number addition','Duplication','Ascending dysploidy',
-    'Duplication by 1.5','Descending dysploidy','Base (monoploid) number','ΔAICc from best model'];
-  const tbody = document.createElement('tbody');
-  labels.forEach((label,index) => {
-    const row = document.createElement('tr'), th = document.createElement('th');
-    th.scope = 'row'; th.textContent = label; row.append(th);
-    sorted.forEach(record => {
-      const td = document.createElement('td');
-      td.textContent = index === 6 ? (record.aicc === null ? '-' : (record.aicc - best).toFixed(4)) :
-        (record.summary?.[index]?.[1] ?? '-');
-      row.append(td);
-    });
+  thead.append(header);
+  if(multipleRegimes){
+    const row=document.createElement('tr');
+    for(const record of sorted)for(const regime of record.parsed?.regimes||[{name:'Unavailable'}]){
+      const th=document.createElement('th');th.scope='col';th.textContent=regime.name;row.append(th);
+    }
+    thead.append(row);
+  }
+  table.append(thead);
+  const labels=['Base (monoploid) number addition','Duplication','Ascending dysploidy',
+    'Duplication by 1.5','Descending dysploidy','Base (monoploid) number'];
+  const tbody=document.createElement('tbody');
+  if(multipleRegimes){
+    const row=document.createElement('tr'),th=document.createElement('th');th.textContent='Regime root node';th.scope='row';row.append(th);
+    for(const record of sorted)for(const regime of record.parsed?.regimes||[{root:'-'}]){
+      const td=document.createElement('td');td.textContent=regime.root;row.append(td);
+    }
+    tbody.append(row);
+  }
+  labels.forEach((label,index)=>{
+    const row=document.createElement('tr'),th=document.createElement('th');th.scope='row';th.textContent=label;row.append(th);
+    for(const record of sorted)for(const regime of record.parsed?.regimes||[{rows:[]}]){
+      const td=document.createElement('td');td.textContent=regime.rows[index]??'-';row.append(td);
+    }
     tbody.append(row);
   });
-  table.append(tbody);
-  document.getElementById('comparisonNote').textContent = busy ?
-    'Comparison of completed models; the best model may change while remaining models run.' :
-    'Best model first (lowest AICc). ΔAICc = model AICc − best AICc. Unreported parameters are shown as −.';
-  // Rebuild just these four output entries for each model.
-  const outputs = document.getElementById('modelOutputs'); outputs.replaceChildren();
-  // Revoke links made for the previous results rendering; keep input links intact.
-  for (const url of resultUrls) URL.revokeObjectURL(url);
-  resultUrls.length = 0;
-  for (const record of sorted) {
-    const section = document.createElement('section'), title = document.createElement('h3');
-    title.textContent = record.modelName; section.append(title);
-    if (record.error) {
-      const message = document.createElement('p'); message.textContent = 'Run failed: ' + record.error; section.append(message);
+  // AICc describes the complete fitted model, not an individual regime.
+  const delta=document.createElement('tr'),deltaLabel=document.createElement('th');
+  deltaLabel.scope='row';deltaLabel.textContent='ΔAICc from best model';delta.append(deltaLabel);
+  for(const record of sorted){
+    const td=document.createElement('td');td.colSpan=record.parsed?.regimes.length||1;
+    td.textContent=record.aicc===null?'-':(record.aicc-best).toFixed(4);delta.append(td);
+  }
+  tbody.append(delta);table.append(tbody);
+  document.getElementById('comparisonNote').textContent=busy?
+    'Comparison of completed runs; the best model may change while remaining models run.':
+    'Best fitted model first. Each column shows a regime; ΔAICc compares complete models. Unreported parameters are shown as −.';
+  const outputs=document.getElementById('modelOutputs');outputs.replaceChildren();
+  for(const url of resultUrls)URL.revokeObjectURL(url);resultUrls.length=0;
+  for(const record of sorted){
+    const section=document.createElement('section'),title=document.createElement('h3');title.textContent=record.modelName;section.append(title);
+    if(record.error||record.summaryError){
+      const message=document.createElement('p');message.textContent=record.error?'Run failed: '+record.error:'Summary unavailable: '+record.summaryError;section.append(message);
     }
-    const list = document.createElement('ul');
-    for (const filename of ['chromEvol.res','MLAncestralReconstruction_phylo.xml','ancestorsProbs.txt','expectations_second_round.txt']) {
-      if (filename.endsWith('.xml')) {
-        const row = document.createElement('li');
-        if (record.xmlKey) {
-          const link = document.createElement('a');
-          link.href = 'view_ml.html?key=' + encodeURIComponent(record.xmlKey) + '&model=' + encodeURIComponent(record.modelName);
-          // A new same-origin tab copies the XML session storage for this model.
-          link.target = '_blank'; link.rel = 'opener';
-          link.textContent = 'ML Ancestor Tree'; row.append(link);
-        } else row.textContent = 'ML Ancestor Tree — unavailable';
-        list.append(row);
-      } else {
-        const file = record.files.find(item => item.name === filename);
-        if (file) {
-          const before = urls.length;
-          linkFile(list, filename, file.bytes);
-          resultUrls.push(...urls.splice(before));
-        } else {
-          const row = document.createElement('li');row.textContent = filename + ' — not generated';list.append(row);
-        }
+    const list=document.createElement('ul');
+    for(const filename of ['chromEvol.res','MLAncestralReconstruction_phylo.xml','ancestorsProbs.txt','expectations_second_round.txt']){
+      if(filename.endsWith('.xml')){
+        const row=document.createElement('li');
+        if(record.xmlKey){
+          const link=document.createElement('a');link.href='view_ml.html?key='+encodeURIComponent(record.xmlKey)+'&model='+encodeURIComponent(record.modelName);
+          link.target='_blank';link.rel='opener';link.textContent='ML Ancestor Tree';row.append(link);
+        }else row.textContent='ML Ancestor Tree — unavailable';list.append(row);
+      }else{
+        const file=record.files.find(item=>item.name===filename);
+        if(file){const before=urls.length;linkFile(list,filename,file.bytes);resultUrls.push(...urls.splice(before));}
+        else{const row=document.createElement('li');row.textContent=filename+' — not generated';list.append(row);}
       }
     }
-    section.append(list); outputs.append(section);
+    section.append(list);outputs.append(section);
   }
 }
+
 const resultUrls = [];
 function executeModel(model) {
   return new Promise((resolve,reject) => {
