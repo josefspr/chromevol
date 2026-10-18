@@ -13,7 +13,11 @@ const models = definitions.map(([name, base, duplication, demi]) => ({
 }));
 document.getElementById('models').value = JSON.stringify(models, null, 2);
 
-// Homogeneous native parameter generation, once for every defined model.
+const backgroundModel = {...models[0], name: 'Background'};
+let homogeneousModelsText = document.getElementById('models').value;
+let showingHeterogeneous = false;
+
+// Native parameter generation for the selected analysis type.
 function readAnalysisOptions() {
   return {
     analysisType: document.querySelector('input[name="analysisType"]:checked').value,
@@ -26,6 +30,21 @@ function updateAnalysisOptions() {
   const fields = document.getElementById('transitionOptions');
   fields.hidden = !heterogeneous;
   fields.disabled = !heterogeneous;
+  const field = document.getElementById('models');
+  if (heterogeneous) {
+    if (!showingHeterogeneous) homogeneousModelsText = field.value;
+    field.value = JSON.stringify([backgroundModel], null, 2);
+  } else if (showingHeterogeneous) {
+    field.value = homogeneousModelsText;
+  }
+  field.readOnly = heterogeneous;
+  document.getElementById('modelsLabel').textContent = heterogeneous
+    ? 'Background model (first default model; fixed for time heterogeneous analysis)'
+    : 'Defined models (editable JSON; all models will run)';
+  document.getElementById('createParams').textContent = heterogeneous
+    ? 'Create Background parameter file'
+    : 'Create parameter files for all models';
+  showingHeterogeneous = heterogeneous;
 }
 document.querySelectorAll('input[name="analysisType"]').forEach(radio => {
   radio.addEventListener('change', updateAnalysisOptions);
@@ -132,17 +151,9 @@ document.getElementById('inputForm').addEventListener('submit', async event => {
     ]);
     const defaults = readDefaults(defaultsText);
     const options = readAnalysisOptions();
-    let definedModels = JSON.parse(document.getElementById('models').value);
-    if (options.analysisType === 'TimeHeterogeneous') {
-	  definedModels = [{
-	    name: 'Background',
-	    _baseNumberR: 'CONST',
-	    _duplConstR: 'IGNORE',
-	    _gainConstR: 'CONST',
-	    _lossConstR: 'CONST',
-	    _demiPloidyR: 'IGNORE'
-	  }];
-    }
+    const definedModels = options.analysisType === 'TimeHeterogeneous'
+      ? [{...backgroundModel}]
+      : JSON.parse(document.getElementById('models').value);
     const nativeFiles = definedModels.map((model, index) => ({
       id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
       params: createParams(template, model, counts, defaults, options)

@@ -19,9 +19,9 @@
 <label for="minCladeSize">Minimum Clade Size
 <input id="minCladeSize" name="minCladeSize" type="number" min="1" step="1" value="5"></label>
 </fieldset>
-<label>Defined models (editable JSON; all models will run)<textarea id="models"></textarea></label>
+<label><span id="modelsLabel">Defined models (editable JSON; all models will run)</span><textarea id="models"></textarea></label>
 <p>The included param_NEW_MODELS_anat.txt supplies the parameter template.</p>
-<button>Create parameter files for all models</button>
+<button id="createParams">Create parameter files for all models</button>
 </form>
-<script src="prepare.js?v=analysis-options-1"></script>
+<script src="prepare.js?v=background-model-1"></script>
 </html>
