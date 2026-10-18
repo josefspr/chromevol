@@ -132,7 +132,17 @@ document.getElementById('inputForm').addEventListener('submit', async event => {
     ]);
     const defaults = readDefaults(defaultsText);
     const options = readAnalysisOptions();
-    const definedModels = JSON.parse(document.getElementById('models').value);
+    let definedModels = JSON.parse(document.getElementById('models').value);
+    if (options.analysisType === 'TimeHeterogeneous') {
+	  definedModels = [{
+	    name: 'Background',
+	    _baseNumberR: 'CONST',
+	    _duplConstR: 'IGNORE',
+	    _gainConstR: 'CONST',
+	    _lossConstR: 'CONST',
+	    _demiPloidyR: 'IGNORE'
+	  }];
+    }
     const nativeFiles = definedModels.map((model, index) => ({
       id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
       params: createParams(template, model, counts, defaults, options)
