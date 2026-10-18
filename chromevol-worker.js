@@ -24,8 +24,11 @@ self.onmessage = async ({data}) => {
       try {
         FS.mkdirTree('/input');
         FS.mkdirTree('/results');
-        FS.writeFile('/input/TreesFile.txt', data.tree);
-        FS.writeFile('/input/countsFile', data.counts);
+        function normalizeText(text) {
+  		return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+	}	
+	FS.writeFile('/input/TreesFile.txt', normalizeText(data.tree));
+	FS.writeFile('/input/countsFile', normalizeText(data.counts));
         FS.writeFile('/input/params.txt', data.params.replace(/\r\n?/g, '\n'));
         FS.chdir('/input');
         // One command-line argument, matching the Python executable call.
