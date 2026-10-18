@@ -291,7 +291,18 @@ function renderResults() {
   const outputs=document.getElementById('modelOutputs');outputs.replaceChildren();
   for(const url of resultUrls)URL.revokeObjectURL(url);resultUrls.length=0;
   for(const record of sorted){
-    const section=document.createElement('section'),title=document.createElement('h3');title.textContent=record.modelName;section.append(title);
+    const regimes = record.parsed?.regimes || [{name:record.modelName,root:'-'}];
+    const hasShifts = regimes.length > 1;
+    for (const regime of regimes) {
+    const section=document.createElement('section'),title=document.createElement('h3');
+    title.textContent = hasShifts ? record.modelName + ' — ' + regime.name : record.modelName;
+    section.append(title);
+    if (hasShifts) {
+      const note = document.createElement('p');
+      note.className = 'note';
+      note.textContent = 'Regime root: ' + regime.root + '. These files and the full tree describe the complete heterogeneous fit and are shared by all its regimes.';
+      section.append(note);
+    }
     if(record.error||record.summaryError){
       const message=document.createElement('p');message.textContent=record.error?'Run failed: '+record.error:'Summary unavailable: '+record.summaryError;section.append(message);
     }
@@ -300,7 +311,7 @@ function renderResults() {
       if(filename.endsWith('.xml')){
         const row=document.createElement('li');
         if(record.xmlKey){
-          const link=document.createElement('a');link.href='view_ml.html?key='+encodeURIComponent(record.xmlKey)+'&model='+encodeURIComponent(record.modelName);
+          const link=document.createElement('a');link.href='view_ml.html?key='+encodeURIComponent(record.xmlKey)+'&model='+encodeURIComponent(record.modelName + (hasShifts ? ' — ' + regime.name + ' (complete fitted tree)' : ''));
           link.target='_blank';link.rel='opener';link.textContent='ML Ancestor Tree';row.append(link);
         }else row.textContent='ML Ancestor Tree — unavailable';list.append(row);
       }else{
@@ -310,6 +321,7 @@ function renderResults() {
       }
     }
     section.append(list);outputs.append(section);
+  }
   }
 }
 
