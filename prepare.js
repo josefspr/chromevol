@@ -14,7 +14,27 @@ const models = definitions.map(([name, base, duplication, demi]) => ({
 document.getElementById('models').value = JSON.stringify(models, null, 2);
 
 // Homogeneous native parameter generation, once for every defined model.
-function createParams(template, model, countsText, defaults) {
+function readAnalysisOptions() {
+  return {
+    analysisType: document.querySelector('input[name="analysisType"]:checked').value,
+    maxRateRegimes: document.getElementById('maxRateRegimes').value,
+    minCladeSize: document.getElementById('minCladeSize').value
+  };
+}
+function updateAnalysisOptions() {
+  const heterogeneous = readAnalysisOptions().analysisType === 'TimeHeterogeneous';
+  const fields = document.getElementById('transitionOptions');
+  fields.hidden = !heterogeneous;
+  fields.disabled = !heterogeneous;
+}
+document.querySelectorAll('input[name="analysisType"]').forEach(radio => {
+  radio.addEventListener('change', updateAnalysisOptions);
+});
+updateAnalysisOptions();
+
+function createParams(template, model, countsText, defaults, options = {
+  analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'
+}) {
   template = template.replace(/\r\n?/g, "\n");
   // find_MinMax(..., 4): only integer FASTA counts >= 4 determine base number.
   const counts = Object.values(Object.fromEntries(
@@ -33,9 +53,9 @@ function createParams(template, model, countsText, defaults) {
     '<TREE_FILE>': '/input/TreesFile.txt',
     '<MAX_CHR_NUM>': String(maxChrNum),
     '<MIN_CHR_NUM>': '-1',
-    '<MIN_CLADE_SIZE>': '5',
-    '<IS_HETEROGENEOUS>': 'false',
-    '<MAX_NUM_MODELS>': '1'
+    '<MIN_CLADE_SIZE>': String(options.minCladeSize),
+    '<IS_HETEROGENEOUS>': String(options.analysisType === 'TimeHeterogeneous'),
+    '<MAX_NUM_MODELS>': options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1'
   };
   for (const [key, value] of Object.entries(replacements)) {
     template = template.split(key).join(value);
@@ -85,9 +105,11 @@ function readDefaults(text) {
     return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
   }));
 }
-function createWrapperParams(definedModels, defaults) {
+function createWrapperParams(definedModels, defaults, options = {analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'}) {
   const settings = {...defaults,
-    analysisType: 'Homogenous', NumberOfTrees: '1',
+    analysisType: options.analysisType, transitionPoints: 'Automatic',
+    maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
+    minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
     TreesDirArr: '/input/ChromEvol_Tree_1,', AdeqTest: 'NO',
     definedModels: JSON.stringify(definedModels),
     _treesFile: '/input/TreesFile.txt', _dataFile: '/input/countsFile',
@@ -109,13 +131,14 @@ document.getElementById('inputForm').addEventListener('submit', async event => {
       loadText('param_NEW_MODELS_anat.txt'), loadText('DEFAULT_PARAM_VALUES.txt')
     ]);
     const defaults = readDefaults(defaultsText);
+    const options = readAnalysisOptions();
     const definedModels = JSON.parse(document.getElementById('models').value);
     const nativeFiles = definedModels.map((model, index) => ({
       id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
-      params: createParams(template, model, counts, defaults)
+      params: createParams(template, model, counts, defaults, options)
     }));
     sessionStorage.setItem('sincopaInput', JSON.stringify({
-      tree, counts, params: createWrapperParams(definedModels, defaults), nativeFiles,
+      tree, counts, ...options, params: createWrapperParams(definedModels, defaults, options), nativeFiles,
       nativeParams: nativeFiles[0]?.params, nativeFilename: nativeFiles[0]?.filename
     }));
     window.location.href = 'output.html';

@@ -7,9 +7,21 @@
 <form id="inputForm" novalidate>
 <label>Tree file <input id="tree" type="file"></label>
 <label>Chromosome counts file <input id="counts" type="file"></label>
+<fieldset>
+<legend>Analysis type</legend>
+<label><input type="radio" name="analysisType" value="Homogenous" checked> Homogeneous</label>
+<label><input type="radio" name="analysisType" value="TimeHeterogeneous"> Time heterogeneous</label>
+</fieldset>
+<fieldset id="transitionOptions" hidden disabled>
+<legend>Identify transition points automatically</legend>
+<label for="maxRateRegimes">Max Number of Rate Regimes
+<input id="maxRateRegimes" name="maxRateRegimes" type="number" min="1" step="1" value="2"></label>
+<label for="minCladeSize">Minimum Clade Size
+<input id="minCladeSize" name="minCladeSize" type="number" min="1" step="1" value="5"></label>
+</fieldset>
 <label>Defined models (editable JSON; all models will run)<textarea id="models"></textarea></label>
 <p>The included param_NEW_MODELS_anat.txt supplies the parameter template.</p>
 <button>Create parameter files for all models</button>
 </form>
-<script src="prepare.js?v=all-models-1"></script>
+<script src="prepare.js?v=analysis-options-1"></script>
 </html>
