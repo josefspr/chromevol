@@ -180,7 +180,9 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <button id="run" type="button">Run defined models again</button>
 <button id="stop" type="button" disabled>Stop</button>
 <p id="status" role="status" aria-live="polite">Ready.</p>
-<details><summary>Input and parameter files</summary><ul id="files"></ul></details>
+<details><summary>Input files</summary><p id="files"></p></details>
+<!-- Debug only: remove hidden from this element to show parameter links. -->
+<div id="debugParameterFiles" hidden><h2>Parameter files (debug)</h2><ul id="parameterFiles"></ul></div>
 <h2>Model summary</h2>
 <p id="comparisonNote" class="note">Models will be sorted by AICc, best first. Rates are rounded to two decimal places.</p>
 <div class="scroll"><table id="summaryTable" aria-label="Model parameter estimates and delta AICc"></table></div>
@@ -387,6 +389,18 @@ function convert_to_PhyD3(newick, countsText) {
     '    </labels>\n' + clade(root, 2) + '\n' +
     '  </phylogeny>\n</phyloxml>\n';
 }
+function formatDefinedModels(models) {
+  const rates = [
+    ['_lossConstR', 'Descending dysploidy rate'],
+    ['_gainConstR', 'Ascending dysploidy rate'],
+    ['_baseNumberR', 'Base (monoploid) number addition rate'],
+    ['_duplConstR', 'Duplication rate'],
+    ['_demiPloidyR', 'Duplication by 1.5 rate']
+  ];
+  return models.map(model => model.name + ': ' + rates
+    .filter(([key]) => model[key] !== undefined && model[key] !== 'IGNORE')
+    .map(([key, label]) => label + ' = ' + model[key]).join(', ')).join('\n') + (models.length ? '\n' : '');
+}
 function textOf(bytes) {
   return typeof bytes === 'string' ? bytes : new TextDecoder().decode(bytes);
 }
@@ -582,8 +596,31 @@ if (!nativeFiles.length) {
   runButton.disabled = true;
 } else {
   const list = document.getElementById('files');
-  for (const [name,content] of [['TreesFile.txt',input.tree],['countsFile',input.counts],['params.txt',input.params]]) linkFile(list,name,content);
-  for (const model of nativeFiles) linkFile(list,model.filename,fixPaths(model.params));
+  const modelLine = (input.params || '').split(/\r?\n/).find(line => line.startsWith('definedModels:'));
+  const definedModels = input.definedModels || (modelLine ? JSON.parse(modelLine.slice('definedModels:'.length)) : []);
+  const definedModelsText = formatDefinedModels(definedModels);
+  for (const [index, [label, name, content]] of [
+    ['Count File', 'countsFile', input.counts],
+    ['Tree File', 'TreesFile.txt', input.tree],
+    ['Defined Models', 'defined_models.txt', definedModelsText]
+  ].entries()) {
+    if (index) list.append(' | ');
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(new Blob([content], {type:'text/plain;charset=utf-8'}));
+    urls.push(url);
+    link.href = url; link.textContent = label;
+    link.onclick = event => {
+      event.preventDefault();
+      document.getElementById('previewTitle').hidden = false;
+      document.getElementById('previewTitle').textContent = name;
+      document.getElementById('preview').hidden = false;
+      document.getElementById('preview').textContent = content;
+    };
+    list.append(link);
+  }
+  const debugList = document.getElementById('parameterFiles');
+  linkFile(debugList, 'params.txt', input.params);
+  for (const model of nativeFiles) linkFile(debugList,model.filename,fixPaths(model.params));
 }
 // Consume a one-time start request from the input page. Refreshing this page
 // never starts another calculation automatically.
