@@ -169,6 +169,21 @@ th,td {padding:10px; border:1px solid #ccc; text-align:left; white-space:nowrap;
 th {background:#f0f0f0;} .best {background:#edf7ee;}
 .note {color:#555;} pre {white-space:pre-wrap; overflow-wrap:anywhere; background:#f3f3f3; padding:16px; max-height:400px; overflow:auto;}
 .citation {border-top:1px solid #ddd; margin-top:32px; padding-top:16px; font:15px/1.6 Georgia,serif;}
+#modelOutputs ul {display:flex; flex-wrap:wrap; list-style:none; padding-left:0; gap:0;}
+#modelOutputs li {margin:4px 0;}
+#modelOutputs li + li::before {content:" | "; white-space:pre; color:#777; padding:0 8px;}
+#inputPreview {margin:12px 0 20px;}
+#inputPreview[hidden] {display:none;}
+.outputsHeading {color:green; text-decoration:underline; font-size:23px; font-weight:bold;}
+#modelOutputs .modelResult {margin:24px 0;}
+#modelOutputs .modelResult > summary {list-style:none; cursor:pointer; display:flex; align-items:center; gap:7px; color:#222; font-size:16px;}
+#modelOutputs .modelResult > summary::-webkit-details-marker {display:none;}
+#modelOutputs .modelResult > summary::before {content:"+"; display:inline-flex; justify-content:center; align-items:center; width:18px; height:18px; border:1px solid #abb4bd; background:#c2c8ce; color:white; font:bold 17px/1 Arial,sans-serif;}
+#modelOutputs .modelResult[open] > summary::before {content:"−"; background:#424b52;}
+#modelOutputs .modelResult > summary:focus-visible {outline:2px solid #4271bc; outline-offset:4px;}
+#modelOutputs .modelResult ul {margin:22px 0 0;}
+#modelOutputs a {color:#2871da; text-decoration:none;}
+#modelOutputs a:hover {text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -180,15 +195,17 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <button id="run" type="button">Run defined models again</button>
 <button id="stop" type="button" disabled>Stop</button>
 <p id="status" role="status" aria-live="polite">Ready.</p>
-<details><summary>Input files</summary><p id="files"></p></details>
+<details open><summary>User Input</summary><p id="files"></p>
+<div id="inputPreview" hidden><button id="closePreview" type="button">Close</button><h3 id="previewTitle" hidden>File contents</h3><pre id="preview" hidden></pre></div>
+</details>
 <!-- Debug only: remove hidden from this element to show parameter links. -->
 <div id="debugParameterFiles" hidden><h2>Parameter files (debug)</h2><ul id="parameterFiles"></ul></div>
 <h2>Model summary</h2>
-<p id="comparisonNote" class="note">Models will be sorted by AICc, best first. Rates are rounded to two decimal places.</p>
-<div class="scroll"><table id="summaryTable" aria-label="Model parameter estimates and delta AICc"></table></div>
-<h2>Model outputs</h2>
+<p id="comparisonNote" class="note">Models will be sorted by AIC, best first. Rates are rounded to two decimal places.</p>
+<div class="scroll"><table id="summaryTable" aria-label="Model parameter estimates and delta AIC"></table></div>
+<h2 class="outputsHeading">Tested models results files:</h2>
 <div id="modelOutputs"></div>
-<h2 id="previewTitle" hidden>File contents</h2><pre id="preview" hidden></pre>
+
 <details><summary>Run log</summary><pre id="log"></pre></details>
 <p><a href="index.html">Prepare another input</a></p>
 <div class="citation">If you use chromEvol, please cite:<br>
@@ -210,6 +227,17 @@ document.getElementById('jobTitle').textContent = input?.jobTitle || 'chromEvol 
 document.getElementById('analysisLabel').textContent = input?.analysisType === 'TimeHeterogeneous'
   ? 'Time heterogeneous analysis' : input ? 'Homogeneous analysis' : '';
 const nativeFiles = input?.nativeFiles || [];
+function showInputPreview(name, content) {
+  document.getElementById('inputPreview').hidden = false;
+  document.getElementById('previewTitle').hidden = false;
+  document.getElementById('previewTitle').textContent = name;
+  document.getElementById('preview').hidden = false;
+  document.getElementById('preview').textContent = content;
+}
+document.getElementById('closePreview').onclick = () => {
+  document.getElementById('inputPreview').hidden = true;
+  document.getElementById('preview').textContent = '';
+};
 const runButton = document.getElementById('run');
 const stopButton = document.getElementById('stop');
 const status = document.getElementById('status');
@@ -413,10 +441,7 @@ function linkFile(parent, name, bytes, label = name) {
   display.textContent = label;
   display.onclick = event => {
     event.preventDefault();
-    document.getElementById('previewTitle').hidden = false;
-    document.getElementById('previewTitle').textContent = name;
-    document.getElementById('preview').hidden = false;
-    document.getElementById('preview').textContent = textOf(bytes);
+    showInputPreview(name, textOf(bytes));
   };
   const download = document.createElement('a');
   download.href = url; download.download = name; download.textContent = 'Download';
@@ -439,6 +464,11 @@ function orderedResults() {
   return [...results].sort((a,b) =>
     (a.aicc ?? Infinity) - (b.aicc ?? Infinity) || a.id - b.id);
 }
+const outputLabels = {
+  'chromEvol.res': 'Results summary',
+  'ancestorsProbs.txt': 'Ancestors distribution Table',
+  'expectations_second_round.txt': 'Inferred Transitions'
+};
 function renderResults() {
   const sorted = orderedResults();
   const best = sorted.find(record=>record.aicc!==null)?.aicc;
@@ -484,7 +514,7 @@ function renderResults() {
   });
   // AICc describes the complete fitted model, not an individual regime.
   const delta=document.createElement('tr'),deltaLabel=document.createElement('th');
-  deltaLabel.scope='row';deltaLabel.textContent='ΔAICc from best model';delta.append(deltaLabel);
+  deltaLabel.scope='row';deltaLabel.textContent='ΔAIC from best model';delta.append(deltaLabel);
   for(const record of sorted){
     const td=document.createElement('td');td.colSpan=record.parsed?.regimes.length||1;
     td.textContent=record.aicc===null?'-':(record.aicc-best).toFixed(4);delta.append(td);
@@ -492,14 +522,15 @@ function renderResults() {
   tbody.append(delta);table.append(tbody);
   document.getElementById('comparisonNote').textContent=busy?
     'Comparison of completed runs; the best model may change while remaining models run.':
-    'Best fitted model first. Each column shows a regime; ΔAICc compares complete models. Unreported parameters are shown as −.';
+    (sorted.find(record => record.aicc !== null) ? 'Best model is: ' + sorted.find(record => record.aicc !== null).modelName + '.' : 'Best model is: unavailable.') + ' Each column shows a regime; ΔAIC compares complete models. Unreported parameters are shown as −.';
   const outputs=document.getElementById('modelOutputs');outputs.replaceChildren();
   for(const url of resultUrls)URL.revokeObjectURL(url);resultUrls.length=0;
   for(const record of sorted){
     const regimes = record.parsed?.regimes || [{name:record.modelName,root:'-'}];
     const hasShifts = (record.parsed?.regimes.length || 1) > 1;
     for (const regime of regimes) {
-    const section=document.createElement('section'),title=document.createElement('h3');
+    const section=document.createElement('details'),title=document.createElement('summary');
+    section.className = 'modelResult';
     title.textContent = hasShifts ? (regime.index === 1 ? record.modelName + ' — Background' : regime.name) : record.modelName;
     section.append(title);
     if (hasShifts) {
@@ -517,12 +548,18 @@ function renderResults() {
         const row=document.createElement('li');
         if(record.xmlKey){
           const link=document.createElement('a');link.href='view_ml.html?key='+encodeURIComponent(record.xmlKey)+'&model='+encodeURIComponent(record.modelName + (hasShifts ? ' — ' + regime.name : ''));
-          link.target='_blank';link.rel='opener';link.textContent='ML Ancestor Tree';row.append(link);
-        }else row.textContent='ML Ancestor Tree — unavailable';list.append(row);
+          link.target='_blank';link.rel='opener';link.textContent='ML Ancestors Tree';row.append(link);
+        }else row.textContent='ML Ancestors Tree — unavailable';list.append(row);
       }else{
         const file=record.files.find(item=>item.name===filename);
-        if(file){const before=urls.length;linkFile(list,filename,file.bytes);resultUrls.push(...urls.splice(before));}
-        else{const row=document.createElement('li');row.textContent=filename+' — not generated';list.append(row);}
+        if(file){
+          const url=URL.createObjectURL(new Blob([file.bytes],{type:'application/octet-stream'}));
+          resultUrls.push(url);
+          const row=document.createElement('li'),link=document.createElement('a');
+          link.href=url;link.download=filename;link.textContent=outputLabels[filename];
+          row.append(link);list.append(row);
+        }
+        else{const row=document.createElement('li');row.textContent=outputLabels[filename]+' — not generated';list.append(row);}
       }
     }
     section.append(list);outputs.append(section);
@@ -555,6 +592,7 @@ runButton.onclick = async () => {
   results.length = 0; clearRunData(); log.textContent = '';
   document.getElementById('summaryTable').replaceChildren();
   document.getElementById('modelOutputs').replaceChildren();
+  document.getElementById('inputPreview').hidden = true;
   document.getElementById('preview').hidden = true;
   document.getElementById('previewTitle').hidden = true;
   const runId = Date.now().toString(36);
@@ -611,10 +649,7 @@ if (!nativeFiles.length) {
     link.href = url; link.textContent = label;
     link.onclick = event => {
       event.preventDefault();
-      document.getElementById('previewTitle').hidden = false;
-      document.getElementById('previewTitle').textContent = name;
-      document.getElementById('preview').hidden = false;
-      document.getElementById('preview').textContent = content;
+      showInputPreview(name, content);
     };
     list.append(link);
   }
