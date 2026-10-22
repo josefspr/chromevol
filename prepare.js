@@ -1,54 +1,6 @@
-// The six default models from the supplied index.html.
-const definitions = [
-  ['DysBnum', 'CONST', 'IGNORE', 'IGNORE'],
-  ['DysBnumDup', 'CONST', 'CONST', 'IGNORE'],
-  ['DysDup', 'IGNORE', 'CONST', 'IGNORE'],
-  ['DysDupDem=', 'IGNORE', 'CONST', '_duplConstR'],
-  ['DysDupDem', 'IGNORE', 'CONST', 'CONST'],
-  ['Dys', 'IGNORE', 'IGNORE', 'IGNORE']
-];
-const models = definitions.map(([name, base, duplication, demi]) => ({
-  name, _baseNumberR: base, _duplConstR: duplication,
-  _gainConstR: 'CONST', _lossConstR: 'CONST', _demiPloidyR: demi
-}));
-document.getElementById('models').value = JSON.stringify(models, null, 2);
-
-const backgroundModel = {...models[0], name: 'Background'};
-let homogeneousModelsText = document.getElementById('models').value;
-let showingHeterogeneous = false;
-
-// Native parameter generation for the selected analysis type.
-function readAnalysisOptions() {
-  return {
-    analysisType: document.querySelector('input[name="analysisType"]:checked').value,
-    maxRateRegimes: document.getElementById('maxRateRegimes').value,
-    minCladeSize: document.getElementById('minCladeSize').value
-  };
-}
-function updateAnalysisOptions() {
-  const heterogeneous = readAnalysisOptions().analysisType === 'TimeHeterogeneous';
-  const fields = document.getElementById('transitionOptions');
-  fields.hidden = !heterogeneous;
-  fields.disabled = !heterogeneous;
-  const field = document.getElementById('models');
-  if (heterogeneous) {
-    if (!showingHeterogeneous) homogeneousModelsText = field.value;
-    field.value = JSON.stringify([backgroundModel], null, 2);
-  } else if (showingHeterogeneous) {
-    field.value = homogeneousModelsText;
-  }
-  field.readOnly = heterogeneous;
-  document.getElementById('modelsLabel').textContent = heterogeneous
-    ? 'Background model (first default model; fixed for time heterogeneous analysis)'
-    : 'Defined models (editable JSON; all models will run)';
-  document.getElementById('createParams').textContent = 'Run defined models';
-  showingHeterogeneous = heterogeneous;
-}
-document.querySelectorAll('input[name="analysisType"]').forEach(radio => {
-  radio.addEventListener('change', updateAnalysisOptions);
-});
-updateAnalysisOptions();
-
+// Adapter for the original chromEvol form and the existing output.html runner.
+(() => {
+'use strict';
 function createParams(template, model, countsText, defaults, options = {
   analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'
 }) {
@@ -139,43 +91,106 @@ async function loadText(filename) {
   if (!response.ok) throw new Error('Could not load ' + filename + ' (HTTP ' + response.status + ')');
   return response.text();
 }
-document.getElementById('inputForm').addEventListener('submit', async event => {
-  event.preventDefault();
-  const button = document.getElementById('createParams');
-  if (button.disabled) return;
-  button.disabled = true;
-  button.textContent = 'Preparing run…';
-  try {
-    const [tree, counts, template, defaultsText] = await Promise.all([
-      document.getElementById('tree').files[0].text(),
-      document.getElementById('counts').files[0].text(),
-      loadText('param_NEW_MODELS_anat.txt'), loadText('DEFAULT_PARAM_VALUES.txt')
-    ]);
-    const defaults = readDefaults(defaultsText);
-    const options = readAnalysisOptions();
-    const definedModels = options.analysisType === 'TimeHeterogeneous'
-      ? [{...backgroundModel}]
-      : JSON.parse(document.getElementById('models').value);
-    const nativeFiles = definedModels.map((model, index) => ({
-      id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
-      params: createParams(template, model, counts, defaults, options)
-    }));
-    const startId = crypto.randomUUID();
-    sessionStorage.setItem('sincopaInput', JSON.stringify({
-      startId,
-      tree, counts, ...options, params: createWrapperParams(definedModels, defaults, options), nativeFiles,
-      nativeParams: nativeFiles[0]?.params, nativeFilename: nativeFiles[0]?.filename
-    }));
-    sessionStorage.setItem('sincopaPendingStart', startId);
-    window.location.href = 'output.html?start=' + encodeURIComponent(startId);
-  } catch (error) {
-    console.error(error); alert(error.message);
-    button.disabled = false;
-    button.textContent = 'Run defined models';
-  }
-});
 
-window.addEventListener('pageshow', () => {
-  document.getElementById('createParams').disabled = false;
-  document.getElementById('createParams').textContent = 'Run defined models';
+const normalizeText = text => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+$(function () {
+  const byId = id => document.getElementById(id);
+  const form = byId('inputForm');
+  const button = byId('submitFormBtn');
+  const status = byId('runPreparationStatus');
+  const pendingReads = new Map();
+  // Replace the original preview handlers so Submit waits for file reading.
+  for (const id of ['TreeFile', 'CountsFile']) {
+    const field = byId(id);
+    $(field).off('change');
+    field.addEventListener('change', () => {
+      const file = field.files[0];
+      if (!file) return;
+      const pending = file.text().then(text => {
+        if (field.files[0] === file) byId(id + '_txt').value = normalizeText(text);
+      });
+      pendingReads.set(id, pending);
+      pending.catch(error => { status.textContent = error.message; });
+    });
+  }
+  // These server features are outside the current browser analysis pipeline.
+  form.querySelectorAll('[name="PruneCounts"], #DiscreteTraitModel, #UserDefined, [name="ploidy_ON"], [name="inputEmail"], [name^="MA_"], input[onclick*="AdequacyText"]').forEach(field => {
+    field.disabled = true;
+    field.required = false;
+    field.title = 'Not available in the browser version yet';
+    field.style.opacity = '0.45';
+    if (field.nextElementSibling?.tagName === 'LABEL') field.nextElementSibling.style.opacity = '0.45';
+  });
+  byId('AdeqTest_DIV').style.display = 'none';
+  AddDefaultModel();
+  let homogeneousModels = JSON.stringify(data);
+  let heterogeneous = false;
+  let maximumRegimes = '2';
+  window.changedAnalysisType = function () {
+    const next = byId('TimeHeterogeneousModel').checked;
+    if (next && !heterogeneous) homogeneousModels = JSON.stringify(data);
+    if (!next && heterogeneous) maximumRegimes = byId('maxRateRegimes').value;
+    heterogeneous = next;
+    byId('transitionPointsDiv').style.display = next ? 'block' : 'none';
+    byId('traitModelDiv').style.display = 'none';
+    byId('addModelDiv').style.display = next ? 'none' : 'block';
+    if (next) {
+      AddHeterogeneusModel();
+      byId('maxRateRegimes').value = maximumRegimes;
+      byId('paramTable').querySelectorAll('input, select, button').forEach(field => field.disabled = true);
+    } else {
+      data = JSON.parse(homogeneousModels);
+      num_data_col = data.length;
+      LoadParamTable();
+    }
+  };
+  window.changedAnalysisType();
+  const resetButton = () => {
+    button.disabled = false;
+    button.value = 'Submit — Run defined models';
+  };
+  resetButton();
+  window.addEventListener('pageshow', resetButton);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (button.disabled) return;
+    button.disabled = true;
+    button.value = 'Preparing run…';
+    status.textContent = 'Preparing parameter files…';
+    try {
+      await Promise.all([...pendingReads.values()]);
+      const tree = normalizeText(byId('TreeFile_txt').value);
+      const counts = normalizeText(byId('CountsFile_txt').value);
+      const options = {
+        analysisType: byId('TimeHeterogeneousModel').checked ? 'TimeHeterogeneous' : 'Homogenous',
+        maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
+        minCladeSize: byId('minCladeSize').value
+      };
+      const definedModels = data.filter(model => !data_record_is_empty(model)).map(model => ({...model}));
+      if (!definedModels.length) throw new Error('Please define at least one model.');
+      const [template, defaultsText] = await Promise.all([
+        loadText('param_NEW_MODELS_anat.txt'), loadText('DEFAULT_PARAM_VALUES.txt')
+      ]);
+      const defaults = readDefaults(defaultsText);
+      byId('definedModels').value = JSON.stringify(definedModels);
+      const nativeFiles = definedModels.map((model, index) => ({
+        id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
+        params: createParams(template, model, counts, defaults, options)
+      }));
+      const startId = crypto.randomUUID();
+      sessionStorage.setItem('sincopaInput', JSON.stringify({
+        startId, tree, counts, ...options,
+        jobTitle: form.elements.jobTitle.value,
+        params: createWrapperParams(definedModels, defaults, options), nativeFiles,
+        nativeParams: nativeFiles[0].params, nativeFilename: nativeFiles[0].filename
+      }));
+      sessionStorage.setItem('sincopaPendingStart', startId);
+      window.location.href = 'output.html?start=' + encodeURIComponent(startId);
+    } catch (error) {
+      console.error(error);
+      status.textContent = 'Could not prepare run: ' + error.message;
+      resetButton();
+    }
+  });
 });
+})();

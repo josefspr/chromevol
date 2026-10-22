@@ -197,7 +197,7 @@
 			LoadParamTable()
 
 			const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-		     	const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+		     	const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => window.bootstrap ? new bootstrap.Tooltip(tooltipTriggerEl) : null)
 		     	
 			//-------------------------------------------------------------		
 			// Load file of user into Text Area of node dating section:
@@ -245,25 +245,7 @@
 	});
 
 
-	$(function () {
-		$("#popover1").popover();
-		$("#popover2").popover();
-		$("#popover3").popover();
-		$("#popover4").popover();
-		$("#popover5").popover();
-		$("#popover6").popover();
-		$("#popover7").popover();
-		$("#popover8").popover();
-		$("#popover9").popover();
-		$("#popover10").popover();
-		$("#popover11").popover();
-		$("#popover12").popover();
-		$("#popover13").popover();
-		$("#popover14").popover();
-		$("#popover15").popover();
-		$("#popover16").popover();
-		$("#popover17").popover();
-	});
+	
 		
 	function selectAll() {
 		var items = ["model_BASE_NUM","model_BASE_NUM_DUPL","model_CONST_RATE","model_CONST_RATE_NO_DUPL","model_CONST_RATE_DEMI","model_CONST_RATE_DEMI_EST"];
@@ -364,14 +346,11 @@
 	
 	
 	
-	<div class="topnav-right">
-				<br><input type="text" id="JobToLoadID" value="" placeholder="Enter your results ID"/>
-				<a href='' id="LoadJob_button" onclick="this.href='/results.html?jobId='+document.getElementById('JobToLoadID').value">Load previous results</a>
-
-	</div>	
+		
 	
 	<!-- chromEvol_newGUI.cgi testModels.cgi-->
-	<form name="myForm" method="post" action="/cgi-bin/chromevol/chromEvol_trait.cgi" enctype="multipart/form-data" onsubmit="return validateForm()">
+	<form id="inputForm" name="myForm" novalidate>
+<p>Browser version: homogeneous and automatic time heterogeneous analyses. Greyed-out server options are not available yet.</p>
 			
 
 			
@@ -461,7 +440,7 @@
 							&nbsp&nbsp&nbsp&nbsp <label style="width:250px">Max Number of Rate Regimes:</label>
 							<input type="text" id="maxRateRegimes" name="maxRateRegimes" value="1"><br></label>
 							&nbsp&nbsp&nbsp&nbsp <label style="width:250px">Minimum Clade Size:</label>
-							<input type="text" name="minCladeSize" value="5">
+							<input type="text" id="minCladeSize" name="minCladeSize" value="5">
 						</div>
 					<br>
 					<input type="radio" name="transitionPoints" id="UserDefined" value="UserDefined" class="form-radio disabled"><label for="radio-two" class="disabled">
@@ -585,7 +564,7 @@
             
 			<br>
 			<div class="col-md-12 col-lg-12" style="text-align:left">  
-				<p><input class="submitButton" type="submit" size="7" name="Submit" value="   Submit   " id="submitFormBtn" onsubmit="return validateForm()"></p>
+				<p><input class="submitButton" type="submit" size="7" name="Submit" value="   Submit   " id="submitFormBtn"></p>
 			</div>  
 
 
@@ -617,7 +596,8 @@
 	<script src="js/googleAnalytics.js"></script>	
 
 
-	</form>
+	<p id="runPreparationStatus" role="status" aria-live="polite"></p>
+</form>
 	
 <script>
 
@@ -854,7 +834,7 @@
 						    }
 						    html += options[option];
 						}
-						html += '<select></div></td>';											
+						html += '</select></div></td>';											
 					} 
 				}
 				if (num_data_col == 7) {
@@ -1104,6 +1084,7 @@
 
 	</div>
 	<script src="bootstrap-5.3.3-dist/js/bootstrap.bundle.min.js"></script>
+<script src="prepare.js?v=original-form-1"></script>
 </body>
 
 </html>
