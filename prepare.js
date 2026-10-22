@@ -1,4 +1,4 @@
-// Adapter for the original chromEvol form and the existing output.html runner.
+// Adapter for the original chromEvol form and the results.html runner.
 (() => {
 'use strict';
 function createParams(template, model, countsText, defaults, options = {
@@ -185,7 +185,7 @@ $(function () {
         nativeParams: nativeFiles[0].params, nativeFilename: nativeFiles[0].filename
       }));
       sessionStorage.setItem('sincopaPendingStart', startId);
-      window.location.href = 'output.html?start=' + encodeURIComponent(startId);
+      window.location.href = 'results.html?start=' + encodeURIComponent(startId);
     } catch (error) {
       console.error(error);
       status.textContent = 'Could not prepare run: ' + error.message;
