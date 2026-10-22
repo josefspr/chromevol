@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>chromEvol — Open results ZIP</title>
+<style>body{font:16px/1.6 Arial,sans-serif;color:#333;max-width:850px;margin:45px auto;padding:0 20px}h1{font-family:Georgia,serif;color:#4271bc}button{padding:10px 18px;margin:16px 0}#status{white-space:pre-wrap}a{color:#245b9e}</style></head>
+<body><h1>Open saved chromEvol results</h1>
+<p>Choose a results ZIP exported by the website or the Node.js runner.</p>
+<form id="uploadForm"><label for="zipFile">Results ZIP</label><br><input id="zipFile" type="file" accept=".zip,application/zip" required><br><button id="openZip" type="submit">Open results</button></form>
+<p id="status" role="status" aria-live="polite"></p>
+<p>The ZIP stays in this browser. Opening another archive replaces the saved upload.</p>
+<p><a href="index.html">Prepare a new run</a></p>
+<script src="chromevol-core.js"></script><script src="zip-import.js"></script>
+<script>
+document.getElementById('uploadForm').onsubmit=async event=>{
+ event.preventDefault();const button=document.getElementById('openZip'),status=document.getElementById('status');button.disabled=true;
+ try{
+   const file=document.getElementById('zipFile').files[0];if(!file)throw new Error('Choose a results ZIP file.');
+   status.textContent='Reading results…';const buffer=await file.arrayBuffer();
+   SincopaZipImport.restore(await SincopaZipImport.readZip(buffer));
+   await SincopaZipImport.saveArchive(buffer,file.name);
+   location.href='results.html?archive=latest';
+ }catch(error){status.textContent='Could not open ZIP: '+error.message;button.disabled=false;}
+};
+</script></body></html>

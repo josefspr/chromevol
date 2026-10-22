@@ -207,7 +207,7 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <div id="modelOutputs"></div>
 
 <details><summary>Run log</summary><pre id="log"></pre></details>
-<p><a href="index.html">Prepare another input</a></p>
+<p><a href="index.html">Prepare another input</a> | <a href="zip_viewer.html">Open saved results ZIP</a></p>
 <section aria-labelledby="downloadHeading">
 <h2 id="downloadHeading">Download run</h2>
 <button id="downloadParams" type="button" disabled>Download parameters file</button>
@@ -225,9 +225,14 @@ Glick, Lior, and Itay Mayrose. “ChromEvol: assessing the pattern of chromosome
 // Reuse the original site header; the results runner has no jQuery dependency.
 if (window.jQuery) jQuery(function () { jQuery('#header').load('header.html'); });
 </script>
+<script src="chromevol-core.js"></script>
+<script src="zip-import.js"></script>
 <script>
+(async () => {
+const imported = new URL(location.href).searchParams.get('archive') === 'latest'
+  ? await SincopaZipImport.loadArchive() : null;
 let input;
-try { input = JSON.parse(sessionStorage.getItem('sincopaInput')); }
+try { input = imported?.input || JSON.parse(sessionStorage.getItem('sincopaInput')); }
 catch (error) { console.error('Could not read run inputs:', error); }
 document.getElementById('jobTitle').textContent = input?.jobTitle || 'chromEvol results';
 document.getElementById('analysisLabel').textContent = input?.analysisType === 'TimeHeterogeneous'
@@ -670,7 +675,7 @@ if (!nativeFiles.length) {
 // never starts another calculation automatically.
 const startUrl = new URL(window.location.href);
 const requestedStart = startUrl.searchParams.get('start');
-if (requestedStart) {
+if (requestedStart && !imported) {
   const pending = sessionStorage.getItem('sincopaPendingStart');
   startUrl.searchParams.delete('start');
   window.history.replaceState(null, '', startUrl.pathname + startUrl.search + startUrl.hash);
@@ -772,9 +777,35 @@ document.getElementById('downloadZip').onclick=()=>{
     message.textContent='ZIP created with '+results.length+' calculated model(s).';
   }catch(error){console.error(error);message.textContent='Could not create ZIP: '+error.message;}
 };
+if (imported) {
+  log.textContent = imported.log;
+  for (const saved of imported.records) {
+    const record = parseRun(saved.model, saved.files, saved.error);
+    const xmlFile = record.files.find(file => file.name === 'MLAncestralReconstruction_phylo.xml');
+    const newick = record.files.find(file => file.name === 'MLAncestralReconstruction.tree');
+    try {
+      const xml = xmlFile ? textOf(xmlFile.bytes) : newick ? convert_to_PhyD3(textOf(newick.bytes),input.counts) : null;
+      if (xml) {
+        record.phyloXML = xml;
+        const key = 'sincopaMLPhyloXML:import:' + crypto.randomUUID();
+        sessionStorage.setItem(key,xml);xmlKeys.push(key);record.xmlKey=key;
+      }
+    } catch(error) { log.textContent += '\nTree viewer: ' + error.message; }
+    results.push(record);
+  }
+  renderResults();
+  document.getElementById('downloadZip').disabled = !results.length;
+  runButton.hidden = true;stopButton.hidden = true;
+  status.textContent = 'Loaded ' + imported.archiveName + ' — ' + results.length + ' calculated model(s). No calculation was started.';
+}
 window.addEventListener('pagehide', () => {
   worker?.terminate();
   [...urls,...resultUrls].forEach(url => URL.revokeObjectURL(url));
+});
+})().catch(error => {
+  console.error(error);
+  document.getElementById('status').textContent = 'Could not load results: ' + error.message;
+  document.getElementById('run').disabled = true;
 });
 </script>
 </body>
