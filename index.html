@@ -667,7 +667,7 @@
 		if (e.checked) {
 			disabled = false;
 			opacity = 1.0;
-			val = 'CONST';
+			val = e.parentElement.querySelector('select')?.value || 'CONST';
 		}
 		else {
 			disabled = true;
@@ -797,12 +797,12 @@
 							"_duplConstR":'<option value="_duplConstR" style="font-size:13px;">=duplRate</option>',
 							"_gainConstR":'<option value="_gainConstR" style="font-size:13px;">=gainRate</option>',
 							"_lossConstR":'<option value="_lossConstR" style="font-size:13px;">=lossRate</option>',
-							"_demiPloidyR":'<option value="_demiPloidyR" style="font-size:13px;">=demiPloidyRate<option>'
+							"_demiPloidyR":'<option value="_demiPloidyR" style="font-size:13px;">=demiPloidyRate</option>'
 						}
 						
 						//set the selected option
 						if (val != 'IGNORE') {
-							options[val] = options[val].replace(">", "selected>")
+							options[val] = options[val].replace(">", " selected>")
 						}
 						
 						/*
@@ -1084,7 +1084,7 @@
 
 	</div>
 	<script src="bootstrap-5.3.3-dist/js/bootstrap.bundle.min.js"></script>
-<script src="prepare.js?v=original-form-1"></script>
+<script src="prepare.js?v=manual-models-2"></script>
 </body>
 
 </html>

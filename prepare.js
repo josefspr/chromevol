@@ -122,7 +122,7 @@ $(function () {
     if (field.nextElementSibling?.tagName === 'LABEL') field.nextElementSibling.style.opacity = '0.45';
   });
   byId('AdeqTest_DIV').style.display = 'none';
-  AddDefaultModel();
+  ClearModels();
   let homogeneousModels = JSON.stringify(data);
   let heterogeneous = false;
   let maximumRegimes = '2';
