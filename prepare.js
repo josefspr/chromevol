@@ -41,9 +41,7 @@ function updateAnalysisOptions() {
   document.getElementById('modelsLabel').textContent = heterogeneous
     ? 'Background model (first default model; fixed for time heterogeneous analysis)'
     : 'Defined models (editable JSON; all models will run)';
-  document.getElementById('createParams').textContent = heterogeneous
-    ? 'Create Background parameter file'
-    : 'Create parameter files for all models';
+  document.getElementById('createParams').textContent = 'Run defined models';
   showingHeterogeneous = heterogeneous;
 }
 document.querySelectorAll('input[name="analysisType"]').forEach(radio => {
@@ -143,6 +141,10 @@ async function loadText(filename) {
 }
 document.getElementById('inputForm').addEventListener('submit', async event => {
   event.preventDefault();
+  const button = document.getElementById('createParams');
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = 'Preparing run…';
   try {
     const [tree, counts, template, defaultsText] = await Promise.all([
       document.getElementById('tree').files[0].text(),
@@ -158,10 +160,22 @@ document.getElementById('inputForm').addEventListener('submit', async event => {
       id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
       params: createParams(template, model, counts, defaults, options)
     }));
+    const startId = crypto.randomUUID();
     sessionStorage.setItem('sincopaInput', JSON.stringify({
+      startId,
       tree, counts, ...options, params: createWrapperParams(definedModels, defaults, options), nativeFiles,
       nativeParams: nativeFiles[0]?.params, nativeFilename: nativeFiles[0]?.filename
     }));
-    window.location.href = 'output.html';
-  } catch (error) { console.error(error); alert(error.message); }
+    sessionStorage.setItem('sincopaPendingStart', startId);
+    window.location.href = 'output.html?start=' + encodeURIComponent(startId);
+  } catch (error) {
+    console.error(error); alert(error.message);
+    button.disabled = false;
+    button.textContent = 'Run defined models';
+  }
+});
+
+window.addEventListener('pageshow', () => {
+  document.getElementById('createParams').disabled = false;
+  document.getElementById('createParams').textContent = 'Run defined models';
 });

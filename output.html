@@ -5,7 +5,7 @@
 <style>body{font:16px system-ui;max-width:1200px;margin:35px auto;padding:0 20px}li{margin:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f3f3;padding:16px;max-height:400px;overflow:auto}button{padding:10px;margin:5px}table{border-collapse:collapse;width:100%}td,th{padding:10px;border:1px solid #ddd;text-align:left;white-space:nowrap}th{background:#f3f3f3}.scroll{overflow-x:auto}.best{background:#edf7ee}section{margin-top:24px}.note{color:#555}</style>
 <h1>chromEvol model results</h1>
 <details><summary>Input and parameter files</summary><ul id="files"></ul></details>
-<button id="run">Run all defined models</button><button id="stop" disabled>Stop</button>
+<button id="run">Run defined models again</button><button id="stop" disabled>Stop</button>
 <p id="status" role="status">Ready.</p>
 <h2>Model summary</h2>
 <p id="comparisonNote" class="note">Models will be sorted by AICc, best first. Rates are rounded to two decimal places.</p>
@@ -345,6 +345,7 @@ function clearRunData() {
   xmlKeys.length = 0;
 }
 runButton.onclick = async () => {
+  if (busy) return;
   cancelled = false; busy = true; runButton.disabled = true; stopButton.disabled = false;
   results.length = 0; clearRunData(); log.textContent = '';
   document.getElementById('summaryTable').replaceChildren();
@@ -392,6 +393,23 @@ if (!nativeFiles.length) {
   const list = document.getElementById('files');
   for (const [name,content] of [['TreesFile.txt',input.tree],['countsFile',input.counts],['params.txt',input.params]]) linkFile(list,name,content);
   for (const model of nativeFiles) linkFile(list,model.filename,fixPaths(model.params));
+}
+// Consume a one-time start request from the input page. Refreshing this page
+// never starts another calculation automatically.
+const startUrl = new URL(window.location.href);
+const requestedStart = startUrl.searchParams.get('start');
+if (requestedStart) {
+  const pending = sessionStorage.getItem('sincopaPendingStart');
+  startUrl.searchParams.delete('start');
+  window.history.replaceState(null, '', startUrl.pathname + startUrl.search + startUrl.hash);
+  if (pending === requestedStart && input?.startId === requestedStart) {
+    sessionStorage.removeItem('sincopaPendingStart');
+    if (nativeFiles.length) {
+      status.textContent = 'Starting defined models…';
+      // Let the results page paint before loading the WASM worker.
+      setTimeout(() => runButton.onclick(), 0);
+    }
+  }
 }
 window.addEventListener('pagehide', () => {
   worker?.terminate();
