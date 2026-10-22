@@ -1,6 +1,14 @@
 // Adapter for the original chromEvol form and the results.html runner.
 (() => {
 'use strict';
+function portableParams(text) {
+  const inputFields = new Set(['_treesFile','_treeFile','_dataFile','TreesDirArr',
+    'TreeFile','CountsFile','TreeFile_txt','CountsFile_txt']);
+  return normalizeText(text).split('\n').filter(line => {
+    const separator = line.indexOf(':');
+    return separator < 0 || !inputFields.has(line.slice(0, separator).trim());
+  }).join('\n');
+}
 function createParams(template, model, countsText, defaults, options = {
   analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'
 }) {
@@ -79,12 +87,11 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     analysisType: options.analysisType, transitionPoints: 'Automatic',
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
-    TreesDirArr: '/input/ChromEvol_Tree_1,', AdeqTest: 'NO',
+    AdeqTest: 'NO',
     definedModels: JSON.stringify(definedModels),
-    _treesFile: '/input/TreesFile.txt', _dataFile: '/input/countsFile',
     _outDir: '/input/chromevol_out', _name: 'browser_run', _cpusNum: '1'
   };
-  return Object.entries(settings).map(([key,value]) => key + ':' + value).join('\n') + '\n';
+  return portableParams(Object.entries(settings).map(([key,value]) => key + ':' + value).join('\n') + '\n');
 }
 async function loadText(filename) {
   const response = await fetch(filename, {cache: 'no-store'});

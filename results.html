@@ -668,7 +668,7 @@ if (!nativeFiles.length) {
     list.append(link);
   }
   const debugList = document.getElementById('parameterFiles');
-  linkFile(debugList, 'params.txt', input.params);
+  linkFile(debugList, 'params.txt', SincopaCore.portableParams(input.params));
   for (const model of nativeFiles) linkFile(debugList,model.filename,fixPaths(model.params));
 }
 // Consume a one-time start request from the input page. Refreshing this page
@@ -741,7 +741,7 @@ function exportEntries() {
     {name:'input/countsFile',content:input.counts},
     {name:'input/TreesFile.txt',content:input.tree},
     {name:'input/defined_models.txt',content:formatDefinedModels(models)},
-    {name:'params.txt',content:input.params},
+    {name:'params.txt',content:SincopaCore.portableParams(input.params)},
     {name:'summary.csv',content:summaryCSV()},
     {name:'run.log',content:log.textContent}
   ];
@@ -768,7 +768,7 @@ function downloadBlob(blob,filename) {
 }
 const paramsDownload=document.getElementById('downloadParams');
 paramsDownload.disabled=!input?.params;
-paramsDownload.onclick=()=>downloadBlob(new Blob([input.params],{type:'text/plain;charset=utf-8'}),'params.txt');
+paramsDownload.onclick=()=>downloadBlob(new Blob([SincopaCore.portableParams(input.params)],{type:'text/plain;charset=utf-8'}),'params.txt');
 document.getElementById('downloadZip').onclick=()=>{
   if(busy||!results.length)return;
   const message=document.getElementById('exportStatus');

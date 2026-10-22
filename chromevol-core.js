@@ -8,6 +8,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
 'use strict';
 const normalizeText = text => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+function portableParams(text) {
+  const inputFields = new Set(['_treesFile','_treeFile','_dataFile','TreesDirArr',
+    'TreeFile','CountsFile','TreeFile_txt','CountsFile_txt']);
+  return normalizeText(text).split('\n').filter(line => {
+    const separator = line.indexOf(':');
+    return separator < 0 || !inputFields.has(line.slice(0, separator).trim());
+  }).join('\n');
+}
 function readParameters(text) { return readDefaults(normalizeText(text)); }
 function prepareRun({tree, counts, params, template, defaultsText}) {
   tree = normalizeText(tree); counts = normalizeText(counts);
@@ -104,12 +112,11 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     analysisType: options.analysisType, transitionPoints: 'Automatic',
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
-    TreesDirArr: '/input/ChromEvol_Tree_1,', AdeqTest: 'NO',
+    AdeqTest: 'NO',
     definedModels: JSON.stringify(definedModels),
-    _treesFile: '/input/TreesFile.txt', _dataFile: '/input/countsFile',
     _outDir: '/input/chromevol_out', _name: 'browser_run', _cpusNum: '1'
   };
-  return Object.entries(settings).map(([key,value]) => key + ':' + value).join('\n') + '\n';
+  return portableParams(Object.entries(settings).map(([key,value]) => key + ':' + value).join('\n') + '\n');
 }
 
 function fixPaths(text) {
@@ -368,7 +375,7 @@ function exportEntries({input, nativeFiles = input.nativeFiles || [], results, l
     {name:'input/countsFile',content:input.counts},
     {name:'input/TreesFile.txt',content:input.tree},
     {name:'input/defined_models.txt',content:formatDefinedModels(models)},
-    {name:'params.txt',content:input.params},
+    {name:'params.txt',content:portableParams(input.params)},
     {name:'summary.csv',content:summaryCSV(results)},
     {name:'run.log',content:log}
   ];
@@ -388,7 +395,7 @@ function exportEntries({input, nativeFiles = input.nativeFiles || [], results, l
   return entries;
 }
 
-return Object.freeze({normalizeText,readDefaults,readParameters,createParams,createWrapperParams,
+return Object.freeze({normalizeText,portableParams,readDefaults,readParameters,createParams,createWrapperParams,
   prepareRun,fixPaths,summarizeResults,convert_to_PhyD3,formatDefinedModels,textOf,
   parseRun,orderedResults,summaryCSV,exportEntries,makeZip});
 });
