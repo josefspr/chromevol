@@ -482,16 +482,16 @@ function renderResults() {
   const outputs=document.getElementById('modelOutputs');outputs.replaceChildren();
   for(const url of resultUrls)URL.revokeObjectURL(url);resultUrls.length=0;
   for(const record of sorted){
-    const regimes = [{name: record.modelName}];
+    const regimes = record.parsed?.regimes || [{name:record.modelName,root:'-'}];
     const hasShifts = (record.parsed?.regimes.length || 1) > 1;
     for (const regime of regimes) {
     const section=document.createElement('section'),title=document.createElement('h3');
-    title.textContent = record.modelName;
+    title.textContent = hasShifts ? (regime.index === 1 ? record.modelName + ' — Background' : regime.name) : record.modelName;
     section.append(title);
     if (hasShifts) {
       const note = document.createElement('p');
       note.className = 'note';
-      note.textContent = 'These files describe the complete heterogeneous fit (' + record.parsed.regimes.length + ' rate regimes). Background and shift parameters appear in the summary above.';
+      note.textContent = 'Regime root: ' + regime.root + '. These links show the complete heterogeneous fit and tree, shared by Background and all shifts.';
       section.append(note);
     }
     if(record.error||record.summaryError){
@@ -502,7 +502,7 @@ function renderResults() {
       if(filename.endsWith('.xml')){
         const row=document.createElement('li');
         if(record.xmlKey){
-          const link=document.createElement('a');link.href='view_ml.html?key='+encodeURIComponent(record.xmlKey)+'&model='+encodeURIComponent(record.modelName);
+          const link=document.createElement('a');link.href='view_ml.html?key='+encodeURIComponent(record.xmlKey)+'&model='+encodeURIComponent(record.modelName + (hasShifts ? ' — ' + regime.name : ''));
           link.target='_blank';link.rel='opener';link.textContent='ML Ancestor Tree';row.append(link);
         }else row.textContent='ML Ancestor Tree — unavailable';list.append(row);
       }else{
