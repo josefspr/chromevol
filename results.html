@@ -263,6 +263,26 @@ const runButton = document.getElementById('run');
 const stopButton = document.getElementById('stop');
 const status = document.getElementById('status');
 const log = document.getElementById('log');
+// Keep the complete log independently of the DOM. Append only new text once a second.
+const runLog = [];
+let pendingLog = [], logTimer = null;
+function flushLog() {
+  if (logTimer !== null) { clearTimeout(logTimer); logTimer = null; }
+  if (!pendingLog.length) return;
+  log.append(pendingLog.join(''));
+  pendingLog = [];
+  log.scrollTop = log.scrollHeight;
+}
+function appendLog(text) {
+  runLog.push(text); pendingLog.push(text);
+  if (logTimer === null) logTimer = setTimeout(flushLog, 1000);
+}
+function resetLog(text = '') {
+  if (logTimer !== null) { clearTimeout(logTimer); logTimer = null; }
+  pendingLog = []; runLog.length = 0; log.textContent = '';
+  if (text) { runLog.push(text); log.append(text); }
+}
+function fullLog() { return runLog.join(''); }
 const results = [];
 const adequacyEntries = [];
 const urls = [];
@@ -553,11 +573,13 @@ const resultUrls = [];
 function executeModel(model,job={tree:input.tree,counts:input.counts,params:fixPaths(model.params)}) {
   return new Promise((resolve,reject) => {
     rejectCurrent = reject;
-    worker = new Worker('chromevol-worker.js?v=adequacy-1');
+    worker = new Worker('chromevol-worker.js?v=buffered-log-1');
     worker.onerror = event => reject(new Error(event.message));
     worker.onmessage = ({data}) => {
       if (data.type === 'log') {
-        log.textContent += '[' + model.modelName + '] ' + data.text + '\n'; log.scrollTop = log.scrollHeight;
+        appendLog('[' + model.modelName + '] ' + data.text + '\n');
+      } else if (data.type === 'logBatch') {
+        appendLog(data.texts.map(text => '[' + model.modelName + '] ' + text + '\n').join(''));
       } else if (data.type === 'error') reject(new Error(data.text));
       else if (data.type === 'done') resolve(data);
     };
@@ -572,7 +594,7 @@ runButton.onclick = async () => {
   if (busy) return;
   document.getElementById('downloadZip').disabled = true;
   cancelled = false; busy = true; runButton.disabled = true; stopButton.disabled = false;
-  results.length = 0; adequacyEntries.length=0; clearRunData(); log.textContent = '';
+  results.length = 0; adequacyEntries.length=0; clearRunData(); resetLog();
 
   document.getElementById('summaryTable').replaceChildren();
   document.getElementById('modelOutputs').replaceChildren();
@@ -595,7 +617,7 @@ runButton.onclick = async () => {
           const key = 'sincopaMLPhyloXML:' + runId + ':' + index;
           record.phyloXML = xml;
           sessionStorage.setItem(key,xml); xmlKeys.push(key); record.xmlKey = key;
-        } catch (error) { log.textContent += '[' + model.modelName + '] Tree conversion/viewer: ' + error.message + '\n'; }
+        } catch (error) { appendLog('[' + model.modelName + '] Tree conversion/viewer: ' + error.message + '\n'); }
       }
     } catch (error) {
       if (cancelled) break;
@@ -615,7 +637,7 @@ runButton.onclick = async () => {
         if(cancelled)break;
         const result=await ChromevolAdequacyBrowser.run(record,input,{
           simulations:adequacyOptions.simulations,isStopped:()=>cancelled,
-          onStatus:message=>{status.textContent=message;log.textContent+=message+'\n';},
+          onStatus:message=>{status.textContent=message;appendLog(message+'\n');},
           execute:async(job,label)=>{
             try{return await executeModel({modelName:label},job);}
             finally{worker?.terminate();worker=undefined;rejectCurrent=undefined;}
@@ -626,10 +648,11 @@ runButton.onclick = async () => {
         renderResults();
       }
     }catch(error){
-      log.textContent+='Adequacy: '+error.message+'\n';
+      appendLog('Adequacy: '+error.message+'\n');
       adequacyEntries.push({name:'adequacy/selection_error.txt',content:error.message});
     }
   }
+  flushLog();
   busy = false; renderResults();
   document.getElementById('downloadZip').disabled = results.length === 0;
   runButton.disabled = false; stopButton.disabled = true;
@@ -728,7 +751,7 @@ function exportEntries() {
     {name:'input/defined_models.txt',content:formatDefinedModels(models)},
     {name:'params.txt',content:SincopaCore.portableParams(input.params)},
     {name:'summary.csv',content:summaryCSV()},
-    {name:'run.log',content:log.textContent}
+    {name:'run.log',content:fullLog()}
   ];
   const safe=name=>String(name).replace(/[^a-zA-Z0-9._=-]/g,'_').replace(/^\.+$/,'model')||'model';
   for(const model of nativeFiles) entries.push({name:'parameters/'+(Number(model.id)+1)+'_'+safe(model.filename),content:fixPaths(model.params)});
@@ -764,7 +787,7 @@ document.getElementById('downloadZip').onclick=()=>{
   }catch(error){console.error(error);message.textContent='Could not create ZIP: '+error.message;}
 };
 if (imported) {
-  log.textContent = imported.log;
+  resetLog(imported.log);
   adequacyEntries.push(...(imported.adequacyEntries||[]));
   for (const saved of imported.records) {
     const record = parseRun(saved.model, saved.files, saved.error);
@@ -778,7 +801,7 @@ if (imported) {
         const key = 'sincopaMLPhyloXML:import:' + crypto.randomUUID();
         sessionStorage.setItem(key,xml);xmlKeys.push(key);record.xmlKey=key;
       }
-    } catch(error) { log.textContent += '\nTree viewer: ' + error.message; }
+    } catch(error) { appendLog('\nTree viewer: ' + error.message); }
     results.push(record);
   }
   renderResults();
@@ -787,6 +810,7 @@ if (imported) {
   status.textContent = 'Loaded ' + imported.archiveName + ' — ' + results.length + ' calculated model(s). No calculation was started.';
 }
 window.addEventListener('pagehide', () => {
+  flushLog();
   worker?.terminate();
   [...urls,...resultUrls].forEach(url => URL.revokeObjectURL(url));
 });

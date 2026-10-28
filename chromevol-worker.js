@@ -2,6 +2,17 @@ importScripts('chromevol-core.js');
 /* Uses the classic globals in the supplied chromEvol.js. */
 self.onmessage = async ({data}) => {
   let started = false;
+  let pendingLogs = [], lastLogFlush = Date.now();
+  function flushLogs() {
+    if (!pendingLogs.length) return;
+    self.postMessage({type:'logBatch', texts:pendingLogs});
+    pendingLogs = []; lastLogFlush = Date.now();
+  }
+  function queueLog(text) {
+    pendingLogs.push(String(text));
+    // WASM blocks this worker's event loop: check the clock instead of using a timer.
+    if (Date.now() - lastLogFlush >= 1000) flushLogs();
+  }
   function collect(directory) {
     const files = [];
     for (const name of FS.readdir(directory)) {
@@ -16,9 +27,9 @@ self.onmessage = async ({data}) => {
     noInitialRun: true,
     noExitRuntime: true,
     locateFile: name => new URL(name, self.location.href).href,
-    print: text => self.postMessage({type: 'log', text: String(text)}),
-    printErr: text => self.postMessage({type: 'log', text: String(text)}),
-    onAbort: reason => self.postMessage({type: 'error', text: 'WASM aborted: ' + reason}),
+    print: queueLog,
+    printErr: queueLog,
+    onAbort: reason => {flushLogs();self.postMessage({type: 'error', text: 'WASM aborted: ' + reason});},
     onRuntimeInitialized() {
       started = true;
       let code, failure;
@@ -42,15 +53,16 @@ self.onmessage = async ({data}) => {
         else {code=1;failure=error?.message||String(error);}
       }
       try {
+        flushLogs();
         self.postMessage({type: 'done', code, error: failure, files: collect('/results')});
       } catch (error) {
-        self.postMessage({type: 'error', text: String(error)});
+        flushLogs();self.postMessage({type: 'error', text: String(error)});
       }
     }
   };
   try {
     importScripts('chromEvol.js');
   } catch (error) {
-    if (!started) self.postMessage({type: 'error', text: String(error)});
+    if (!started) flushLogs();self.postMessage({type: 'error', text: String(error)});
   }
 };
