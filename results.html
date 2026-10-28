@@ -209,9 +209,9 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <h2>Model summary</h2>
 <p id="comparisonNote" class="note">Models will be sorted by AIC, best first. Rates are rounded to two decimal places.</p>
 <div class="scroll"><table id="summaryTable" aria-label="Model parameter estimates and delta AIC"></table></div>
-<section id="adequacyResults" hidden></section>
 <h2 class="outputsHeading">Tested models results files:</h2>
 <div id="modelOutputs"></div>
+<section id="adequacyResults" hidden></section>
 
 <details><summary>Run log</summary><pre id="log"></pre></details>
 <p><a href="index.html">Prepare another input</a> | <a href="zip_viewer.html">Open saved results ZIP</a></p>
@@ -473,23 +473,20 @@ function renderResults() {
   const multipleRegimes = sorted.some(record=>(record.parsed?.regimes.length||1)>1);
   const thead=document.createElement('thead'),header=document.createElement('tr');
   const parameter=document.createElement('th');parameter.textContent='Parameter';parameter.scope='col';
-  if (multipleRegimes) parameter.rowSpan=2;
   header.append(parameter);
-  sorted.forEach((record,index)=>{
-    const th=document.createElement('th');th.scope='colgroup';
-    th.colSpan=record.parsed?.regimes.length||1;
-    th.textContent=fitName(record)+(index===0&&record.aicc!==null?(busy?' (best so far)':' (best)'):'');
-    if(index===0&&record.aicc!==null)th.className='best';
-    header.append(th);
-  });
-  thead.append(header);
-  if(multipleRegimes){
-    const row=document.createElement('tr');
+  if(hasHeterogeneous){
     for(const record of sorted)for(const regime of record.parsed?.regimes||[{name:'Unavailable'}]){
-      const th=document.createElement('th');th.scope='col';th.textContent=regime.name;row.append(th);
+      const th=document.createElement('th');th.scope='col';th.textContent=regime.name;header.append(th);
     }
-    thead.append(row);
+  }else{
+    sorted.forEach((record,index)=>{
+      const th=document.createElement('th');th.scope='col';
+      th.textContent=fitName(record)+(index===0&&record.aicc!==null?(busy?' (best so far)':' (best)'):'');
+      if(index===0&&record.aicc!==null)th.className='best';
+      header.append(th);
+    });
   }
+  thead.append(header);
   table.append(thead);
   const labels=['Base (monoploid) number addition','Duplication','Ascending dysploidy',
     'Duplication by 1.5','Descending dysploidy','Base (monoploid) number'];
@@ -770,6 +767,11 @@ function exportEntries() {
   entries.push(...adequacyEntries);
   return entries;
 }
+function resultsZipFilename() {
+  const title=String(input?.jobTitle||SincopaCore.readParameters(input?.params||'').jobTitle||'results')
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').replace(/[. ]+$/g,'').trim() || 'results';
+  return 'chromevol-'+title+'.zip';
+}
 function downloadBlob(blob,filename) {
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();
@@ -782,7 +784,7 @@ document.getElementById('downloadZip').onclick=()=>{
   if(busy||!results.length)return;
   const message=document.getElementById('exportStatus');
   try {
-    downloadBlob(makeZip(exportEntries()),'sincopa-results.zip');
+    downloadBlob(makeZip(exportEntries()),resultsZipFilename());
     message.textContent='ZIP created with '+results.length+' calculated model(s).';
   }catch(error){console.error(error);message.textContent='Could not create ZIP: '+error.message;}
 };
