@@ -182,6 +182,23 @@ function summarizeResults(text) {
     result.regimes.push({index, name:index===1?'Background':'Shift '+(index-1), root:roots[index]||'-',
       rows:[rateValue('baseNumR'),rateValue('dupl'),rateValue('gain'),rateValue('demi'),rateValue('loss'),regime.baseNum??'-']});
   }
+  result.isHeterogeneous = /The inferred model was set to be\s*:\s*heterogeneous/i.test(text) || result.regimeCount > 1;
+  result.selectedShiftCount = result.regimeCount - 1;
+  result.shiftModels = [];
+  if (result.isHeterogeneous) {
+    const scores = new Map();
+    // Read only candidate scores from the history; rates above remain from the selected fit.
+    for (const match of text.matchAll(/AICc of the best model with (\d+) shifts?\s*=\s*([+\-\d.eE]+)/g)) {
+      const value = Number(match[2]);
+      if (Number.isFinite(value)) scores.set(Number(match[1]), value);
+    }
+    if (result.aicc !== null) scores.set(result.selectedShiftCount, result.aicc);
+    const minimum = scores.size ? Math.min(...scores.values()) : null;
+    result.shiftModels = [...scores].map(([shifts,aicc]) => ({
+      shifts, name:shifts === 0 ? 'Background (no shifts)' : shifts + '-shift',
+      aicc, deltaAicc:aicc-minimum, selected:shifts === result.selectedShiftCount
+    })).sort((a,b)=>a.deltaAicc-b.deltaAicc || a.shifts-b.shifts);
+  }
   return result;
 }
 
@@ -354,10 +371,14 @@ function makeZip(entries) {
   e.setUint32(12,dirSize,true);e.setUint32(16,offset,true);
   return new Blob([...chunks,...directory,end],{type:'application/zip'});
 }
+function fitName(record) {
+  if (!record.parsed?.isHeterogeneous) return record.modelName;
+  return record.parsed.selectedShiftCount ? record.parsed.selectedShiftCount + '-shift' : 'Background (no shifts)';
+}
 function summaryCSV(results) {
   const sorted=orderedResults(results), best=sorted.find(r=>r.aicc!==null)?.aicc;
   const columns=sorted.flatMap(record=>(record.parsed?.regimes||[{name:'Unavailable',root:'-',rows:[]}]).map(regime=>({record,regime})));
-  const rows=[['Parameter',...columns.map(({record})=>record.modelName)]];
+  const rows=[['Parameter',...columns.map(({record})=>fitName(record))]];
   if(sorted.some(r=>(r.parsed?.regimes.length||1)>1)) {
     rows.push(['Regime',...columns.map(({regime})=>regime.name)]);
     rows.push(['Regime root node',...columns.map(({regime})=>regime.root)]);
@@ -365,7 +386,13 @@ function summaryCSV(results) {
   ['Base (monoploid) number addition','Duplication','Ascending dysploidy','Duplication by 1.5','Descending dysploidy','Base (monoploid) number'].forEach((label,index)=>{
     rows.push([label,...columns.map(({regime})=>regime.rows[index]??'-')]);
   });
-  rows.push(['ΔAIC from best model',...columns.map(({record})=>record.aicc===null?'-':(record.aicc-best).toFixed(4))]);
+  if (!sorted.some(record=>record.parsed?.isHeterogeneous)) {
+    rows.push(['ΔAIC from best model',...columns.map(({record})=>record.aicc===null?'-':(record.aicc-best).toFixed(4))]);
+  }
+  for (const record of sorted.filter(record=>record.parsed?.isHeterogeneous)) {
+    rows.push([],['Shift-model comparison',record.modelName],['Model','Number of shifts','ΔAIC from best model','Selected fit']);
+    for (const candidate of record.parsed.shiftModels) rows.push([candidate.name,candidate.shifts,candidate.deltaAicc.toFixed(4),candidate.selected?'yes':'no']);
+  }
   return '\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value??'').replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n';
 }
 function exportEntries({input, nativeFiles = input.nativeFiles || [], results, log = ''}) {
@@ -397,5 +424,5 @@ function exportEntries({input, nativeFiles = input.nativeFiles || [], results, l
 
 return Object.freeze({normalizeText,portableParams,readDefaults,readParameters,createParams,createWrapperParams,
   prepareRun,fixPaths,summarizeResults,convert_to_PhyD3,formatDefinedModels,textOf,
-  parseRun,orderedResults,summaryCSV,exportEntries,makeZip});
+  parseRun,orderedResults,fitName,summaryCSV,exportEntries,makeZip});
 });
