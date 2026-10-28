@@ -65,10 +65,18 @@ function restore(files) {
   }
   const records=[...groups.values()].map(group=>{
     const failure=group.files.find(f=>f.name==='run-status.txt');
-    return {...group,error:failure?decode(failure.bytes):undefined};
+    const prefix='adequacy/'+(Number(group.model.id)+1)+'_';
+    const adequacyFile=[...files].find(([name])=>name.startsWith(prefix)&&/^adequacy\/[^/]+\/adequacy.json$/.test(name));
+    const errorFile=[...files].find(([name])=>name.startsWith(prefix)&&/^adequacy\/[^/]+\/adequacy_error.json$/.test(name));
+    let adequacy,adequacyError;
+    try{if(adequacyFile)adequacy=JSON.parse(decode(adequacyFile[1]));}
+    catch(error){adequacyError='Could not read saved adequacy results: '+error.message;}
+    try{if(errorFile)adequacyError=JSON.parse(decode(errorFile[1])).error;}
+    catch(error){adequacyError='Could not read saved adequacy error.';}
+    return {...group,adequacy,adequacyError,error:failure?decode(failure.bytes):undefined};
   });
   if(!records.length)throw new Error('No calculated model outputs were found in this archive.');
-  return {input,records,log:files.has('run.log')?decode(files.get('run.log')):''};
+  return {input,records,adequacyEntries:[...files].filter(([name])=>name.startsWith('adequacy/')).map(([name,content])=>({name,content})),log:files.has('run.log')?decode(files.get('run.log')):''};
 }
 function openDB(){return new Promise((resolve,reject)=>{
   const request=indexedDB.open('sincopa-zip-viewer',1);

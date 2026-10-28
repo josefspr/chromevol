@@ -87,7 +87,10 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     analysisType: options.analysisType, transitionPoints: 'Automatic',
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
-    AdeqTest: 'NO',
+    AdeqTest: options.adequacy?.enabled ? 'YES' : 'NO',
+    MA_AdequacyTest: options.adequacy?.mode === 'selected' ? 'MA_AdequacyTest_user' : 'ChromBestModel',
+    MA_userModelSelect: options.adequacy?.selectedName || '',
+    adequacySimulations: String(options.adequacy?.simulations || 1000),
     definedModels: JSON.stringify(definedModels),
     _outDir: '/input/chromevol_out', _name: 'browser_run', _cpusNum: '1'
   };
@@ -121,14 +124,35 @@ $(function () {
     });
   }
   // These server features are outside the current browser analysis pipeline.
-  form.querySelectorAll('[name="PruneCounts"], #DiscreteTraitModel, #UserDefined, [name="ploidy_ON"], [name="inputEmail"], [name^="MA_"], input[onclick*="AdequacyText"]').forEach(field => {
+  form.querySelectorAll('[name="PruneCounts"], #DiscreteTraitModel, #UserDefined, [name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
     field.disabled = true;
     field.required = false;
     field.title = 'Not available in the browser version yet';
     field.style.opacity = '0.45';
     if (field.nextElementSibling?.tagName === 'LABEL') field.nextElementSibling.style.opacity = '0.45';
   });
-  byId('AdeqTest_DIV').style.display = 'none';
+  function syncAdequacy() {
+    const enabled=byId('runAdequacy').checked;
+    const hetero=byId('TimeHeterogeneousModel').checked;
+    byId('AdeqTest_DIV').style.display=enabled?'block':'none';
+    form.elements.AdeqTest.value=enabled?'YES':'NO';
+    const best=byId('MA_AdequacyTest11'),selected=byId('MA_AdequacyTest22'),all=byId('MA_AdequacyTest33');
+    best.disabled=!enabled;selected.disabled=!enabled||hetero;all.disabled=true;
+    if(hetero||all.checked)best.checked=true;
+    const show=enabled&&!hetero&&selected.checked;
+    byId('MA_AdequacyTest_UserDiv').style.display=show?'block':'none';
+    byId('MA_userModelSelect').disabled=!show;
+    byId('adequacySimulations').disabled=!enabled;
+    const list=byId('MA_userModelSelect'),previous=list.value;
+    list.replaceChildren(new Option('--Select--',''));
+    for(const model of data.filter(m=>!data_record_is_empty(m)))list.add(new Option(model.name,model.name));
+    list.value=previous;
+  }
+  window.onClickAdequacyText=syncAdequacy;
+  window.MA_AdequacyTest_chrom=syncAdequacy;
+  window.MA_AdequacyTest_user=syncAdequacy;
+  window.MA_AdequacyTest_all=()=>{byId('MA_AdequacyTest11').checked=true;syncAdequacy();};
+  byId('paramTable').addEventListener('change',syncAdequacy);
   ClearModels();
   let homogeneousModels = JSON.stringify(data);
   let heterogeneous = false;
@@ -150,6 +174,7 @@ $(function () {
       num_data_col = data.length;
       LoadParamTable();
     }
+    syncAdequacy();
   };
   window.changedAnalysisType();
   const resetButton = () => {
@@ -171,10 +196,19 @@ $(function () {
       const options = {
         analysisType: byId('TimeHeterogeneousModel').checked ? 'TimeHeterogeneous' : 'Homogenous',
         maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
-        minCladeSize: byId('minCladeSize').value
+        minCladeSize: byId('minCladeSize').value,
+        adequacy: {enabled:byId('runAdequacy').checked,
+          mode:byId('MA_AdequacyTest22').checked?'selected':'best',
+          selectedName:byId('MA_userModelSelect').value,
+          simulations:Number(byId('adequacySimulations').value)}
       };
+      if(options.adequacy.enabled){
+        if(!Number.isInteger(options.adequacy.simulations)||options.adequacy.simulations<1)throw new Error('Choose a positive whole number of adequacy simulations.');
+        if(options.adequacy.mode==='selected'&&!options.adequacy.selectedName)throw new Error('Choose a model for the adequacy test.');
+      }
       const definedModels = data.filter(model => !data_record_is_empty(model)).map(model => ({...model}));
       if (!definedModels.length) throw new Error('Please define at least one model.');
+      if(options.adequacy.enabled&&options.adequacy.mode==='selected'&&!definedModels.some(m=>m.name===options.adequacy.selectedName))throw new Error('The selected adequacy model is no longer defined. Choose it again.');
       const [template, defaultsText] = await Promise.all([
         loadText('param_NEW_MODELS_anat.txt'), loadText('DEFAULT_PARAM_VALUES.txt')
       ]);

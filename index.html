@@ -510,7 +510,7 @@
 			<div class="col-md-12 col-lg-12">
 				<div class="col-md-6 col-lg-6">
                 <input type="hidden" name="AdeqTest" value='NO' />
-		<input type="checkbox" class="checkmark" onclick='onClickAdequacyText(this)'> <!-- checked="checked"  -->
+		<input type="checkbox" id="runAdequacy" class="checkmark" onclick='onClickAdequacyText(this)'> <!-- checked="checked"  -->
                 <font face="serif" size="5" color="#4271bc">&nbsp&nbsp Run adequacy test:</font>
 		<a id="popover3" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Select on which models to run model adequacy test:<br>(1) The best selected model (2) One of the models specified by the user (3) All selected models<br>NOTE: running model adequacy on models that include the base-number parameter  performs another round of model optimization and will increase running time"><span class="glyphicon glyphicon-info-sign infoIcon"><span class="glyphicon glyphicon-info-sign infoIcon">?</a>
 				<div style="display:block;" id="AdeqTest_DIV">
@@ -520,11 +520,14 @@
 						<select type="text" name="MA_userModelSelect" id="MA_userModelSelect" class="form-control" />
 						</select>
 					</div>
-                    <div id="MA_AdequacyTest_AllModels">
-                        <input class="testingDataSetCheckBox" type="radio" name="MA_AdequacyTest" id="MA_AdequacyTest33" value='AllModels'  class="form-radio" onclick="MA_AdequacyTest_all()"/>&nbsp;All models<br><br>
+                    <div id="MA_AdequacyTest_AllModels" style="opacity:0.45">
+                        <input class="testingDataSetCheckBox" type="radio" name="MA_AdequacyTest" id="MA_AdequacyTest33" value='AllModels' disabled title="Not available yet" class="form-radio" onclick="MA_AdequacyTest_all()"/>&nbsp;All models<br><br>
 					</div>
                    
-                <div style="display:none;" id="MA_AdequacyTest_ChromDiv">
+                <label for="adequacySimulations">Number of simulations</label>
+<input id="adequacySimulations" type="number" min="1" step="1" value="1000" class="form-control">
+<p>Use 1000 for the full test, or 10 for a diagnostic check.</p>
+<div style="display:none;" id="MA_AdequacyTest_ChromDiv">
 
 				</div>
 				<!--div style="display:none;" id="MA_AdequacyTest_AllDiv">
@@ -1084,7 +1087,7 @@
 
 	</div>
 	<script src="bootstrap-5.3.3-dist/js/bootstrap.bundle.min.js"></script>
-<script src="prepare.js?v=manual-models-2"></script>
+<script src="prepare.js?v=adequacy-1"></script>
 </body>
 
 </html>

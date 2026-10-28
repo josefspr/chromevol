@@ -184,6 +184,12 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 #modelOutputs .modelResult ul {margin:22px 0 0;}
 #modelOutputs a {color:#2871da; text-decoration:none;}
 #modelOutputs a:hover {text-decoration:underline;}
+.adequacyResults {margin:24px 0;}
+.adequacyResults > summary {color:green; font-size:22px; font-weight:bold; text-decoration:underline; cursor:pointer;}
+.adequacyResults th, .adequacyResults td {padding:12px 10px; border:1px solid #ddd; text-align:center;}
+.adequacyResults td:first-child {text-align:left; width:33%;}
+.adequacyResults .pvAdequate {color:blue;}
+.adequacyResults .pvInadequate {color:#c00;}
 </style>
 </head>
 <body>
@@ -203,6 +209,7 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <h2>Model summary</h2>
 <p id="comparisonNote" class="note">Models will be sorted by AIC, best first. Rates are rounded to two decimal places.</p>
 <div class="scroll"><table id="summaryTable" aria-label="Model parameter estimates and delta AIC"></table></div>
+<section id="adequacyResults" hidden></section>
 <h2 class="outputsHeading">Tested models results files:</h2>
 <div id="modelOutputs"></div>
 
@@ -226,7 +233,10 @@ Glick, Lior, and Itay Mayrose. “ChromEvol: assessing the pattern of chromosome
 if (window.jQuery) jQuery(function () { jQuery('#header').load('header.html'); });
 </script>
 <script src="chromevol-core.js"></script>
-<script src="zip-import.js"></script>
+<script src="zip-import.js?v=adequacy-1"></script>
+<script src="chromevol-statistics.js"></script>
+<script src="chromevol-adequacy.js"></script>
+<script src="chromevol-adequacy-browser.js"></script>
 <script>
 (async () => {
 const imported = new URL(location.href).searchParams.get('archive') === 'latest'
@@ -254,6 +264,7 @@ const stopButton = document.getElementById('stop');
 const status = document.getElementById('status');
 const log = document.getElementById('log');
 const results = [];
+const adequacyEntries = [];
 const urls = [];
 const xmlKeys = [];
 let worker, cancelled = false, busy = false;
@@ -433,6 +444,7 @@ const outputLabels = {
   'expectations_second_round.txt': 'Inferred Transitions'
 };
 function renderResults() {
+  ChromevolAdequacyBrowser.render(document.getElementById('adequacyResults'),orderedResults());
   const sorted = orderedResults();
   const best = sorted.find(record=>record.aicc!==null)?.aicc;
   const table = document.getElementById('summaryTable'); table.replaceChildren();
@@ -538,10 +550,10 @@ function renderResults() {
 }
 
 const resultUrls = [];
-function executeModel(model) {
+function executeModel(model,job={tree:input.tree,counts:input.counts,params:fixPaths(model.params)}) {
   return new Promise((resolve,reject) => {
     rejectCurrent = reject;
-    worker = new Worker('chromevol-worker.js');
+    worker = new Worker('chromevol-worker.js?v=adequacy-1');
     worker.onerror = event => reject(new Error(event.message));
     worker.onmessage = ({data}) => {
       if (data.type === 'log') {
@@ -549,7 +561,7 @@ function executeModel(model) {
       } else if (data.type === 'error') reject(new Error(data.text));
       else if (data.type === 'done') resolve(data);
     };
-    worker.postMessage({tree:input.tree,counts:input.counts,params:fixPaths(model.params)});
+    worker.postMessage(job);
   });
 }
 function clearRunData() {
@@ -560,7 +572,7 @@ runButton.onclick = async () => {
   if (busy) return;
   document.getElementById('downloadZip').disabled = true;
   cancelled = false; busy = true; runButton.disabled = true; stopButton.disabled = false;
-  results.length = 0; clearRunData(); log.textContent = '';
+  results.length = 0; adequacyEntries.length=0; clearRunData(); log.textContent = '';
 
   document.getElementById('summaryTable').replaceChildren();
   document.getElementById('modelOutputs').replaceChildren();
@@ -593,12 +605,38 @@ runButton.onclick = async () => {
     }
     results.push(record); renderResults();
   }
+  const adequacyOptions=ChromevolAdequacyBrowser.options(input);
+  if(adequacyOptions.enabled&&!cancelled){
+    try{
+      // The browser form supports best/selected only; never start all-model adequacy.
+      if(!['best','selected'].includes(adequacyOptions.mode))throw new Error('All-model adequacy is not enabled.');
+      const selected=ChromevolAdequacy.selectModels(results,adequacyOptions.mode,adequacyOptions.selectedName);
+      for(const record of selected){
+        if(cancelled)break;
+        const result=await ChromevolAdequacyBrowser.run(record,input,{
+          simulations:adequacyOptions.simulations,isStopped:()=>cancelled,
+          onStatus:message=>{status.textContent=message;log.textContent+=message+'\n';},
+          execute:async(job,label)=>{
+            try{return await executeModel({modelName:label},job);}
+            finally{worker?.terminate();worker=undefined;rejectCurrent=undefined;}
+          }
+        });
+        adequacyEntries.push(...result.entries);
+        record.adequacy=result.batch;record.adequacyError=result.error;
+        renderResults();
+      }
+    }catch(error){
+      log.textContent+='Adequacy: '+error.message+'\n';
+      adequacyEntries.push({name:'adequacy/selection_error.txt',content:error.message});
+    }
+  }
   busy = false; renderResults();
   document.getElementById('downloadZip').disabled = results.length === 0;
   runButton.disabled = false; stopButton.disabled = true;
   const failures = results.filter(record => record.error).length;
   status.textContent = (cancelled ? 'Stopped. ' : 'Finished. ') + results.length + '/' + nativeFiles.length +
-    ' models completed' + (failures ? '; ' + failures + ' failed.' : '.');
+    ' models completed' + (failures ? '; ' + failures + ' failed.' : '.')+
+    (adequacyOptions.enabled?' Adequacy: '+(results.some(r=>r.adequacyError)||!results.some(r=>r.adequacy)?'incomplete; see run log.':'completed.'):'');
 };
 stopButton.onclick = () => {
   cancelled = true; worker?.terminate(); rejectCurrent?.(new Error('Stopped'));
@@ -706,6 +744,7 @@ function exportEntries() {
     if(xml&&!record.files.some(file=>file.name==='MLAncestralReconstruction_phylo.xml'))entries.push({name:folder+'MLAncestralReconstruction_phylo.xml',content:xml});
     if(record.error||record.summaryError)entries.push({name:folder+'run-status.txt',content:[record.error,record.summaryError].filter(Boolean).join('\n')});
   }
+  entries.push(...adequacyEntries);
   return entries;
 }
 function downloadBlob(blob,filename) {
@@ -726,8 +765,10 @@ document.getElementById('downloadZip').onclick=()=>{
 };
 if (imported) {
   log.textContent = imported.log;
+  adequacyEntries.push(...(imported.adequacyEntries||[]));
   for (const saved of imported.records) {
     const record = parseRun(saved.model, saved.files, saved.error);
+    record.adequacy=saved.adequacy;record.adequacyError=saved.adequacyError;
     const xmlFile = record.files.find(file => file.name === 'MLAncestralReconstruction_phylo.xml');
     const newick = record.files.find(file => file.name === 'MLAncestralReconstruction.tree');
     try {

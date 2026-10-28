@@ -1,3 +1,4 @@
+importScripts('chromevol-core.js');
 /* Uses the classic globals in the supplied chromEvol.js. */
 self.onmessage = async ({data}) => {
   let started = false;
@@ -24,17 +25,21 @@ self.onmessage = async ({data}) => {
       try {
         FS.mkdirTree('/input');
         FS.mkdirTree('/results');
-        function normalizeText(text) {
-  		return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
-	}	
-	FS.writeFile('/input/TreesFile.txt', normalizeText(data.tree));
-	FS.writeFile('/input/countsFile', normalizeText(data.counts));
-        FS.writeFile('/input/params.txt', data.params.replace(/\r\n?/g, '\n'));
+        FS.writeFile('/input/TreesFile.txt', data.tree);
+        FS.writeFile('/input/countsFile', data.counts);
+        let params=SincopaCore.fixPaths(data.params);
+        if(data.simulationCount){
+          params=params.replace(/^_dataFile\s*=.*$/m,'_dataFile = /results');
+          for(let i=0;i<data.simulationCount;i++)FS.mkdirTree('/results/'+i);
+        }
+        for(const file of data.extraFiles||[])FS.writeFile('/input/'+file.name,file.bytes);
+        FS.writeFile('/input/params.txt', params); 
         FS.chdir('/input');
         // One command-line argument, matching the Python executable call.
-        code = callMain(['param=/input/params.txt']);
+        code = callMain(['param=/input/params.txt'])??0;
       } catch (error) {
-        failure = String(error);
+        if(error?.name==='ExitStatus')code=error.status;
+        else {code=1;failure=error?.message||String(error);}
       }
       try {
         self.postMessage({type: 'done', code, error: failure, files: collect('/results')});
