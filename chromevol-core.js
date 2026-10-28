@@ -375,6 +375,15 @@ function fitName(record) {
   if (!record.parsed?.isHeterogeneous) return record.modelName;
   return record.parsed.selectedShiftCount ? record.parsed.selectedShiftCount + '-shift' : 'Background (no shifts)';
 }
+function deltaComparison(record, regime, best) {
+  if(record.parsed?.isHeterogeneous) {
+    const shifts=(regime.index||1)-1;
+    const candidate=record.parsed.shiftModels.find(item=>item.shifts===shifts);
+    return {name:candidate?.name || (shifts ? shifts+'-shift' : 'Background (no shifts)'),
+      value:candidate ? candidate.deltaAicc.toFixed(4) : '-'};
+  }
+  return {name:record.modelName,value:record.aicc===null?'-':(record.aicc-best).toFixed(4)};
+}
 function summaryCSV(results) {
   const sorted=orderedResults(results), best=sorted.find(r=>r.aicc!==null)?.aicc;
   const columns=sorted.flatMap(record=>(record.parsed?.regimes||[{name:'Unavailable',root:'-',rows:[]}]).map(regime=>({record,regime})));
@@ -386,13 +395,10 @@ function summaryCSV(results) {
   ['Base (monoploid) number addition','Duplication','Ascending dysploidy','Duplication by 1.5','Descending dysploidy','Base (monoploid) number'].forEach((label,index)=>{
     rows.push([label,...columns.map(({regime})=>regime.rows[index]??'-')]);
   });
-  if (!sorted.some(record=>record.parsed?.isHeterogeneous)) {
-    rows.push(['ΔAIC from best model',...columns.map(({record})=>record.aicc===null?'-':(record.aicc-best).toFixed(4))]);
+  if(sorted.some(record=>record.parsed?.isHeterogeneous)) {
+    rows.push(['ΔAIC comparison model',...columns.map(({record,regime})=>deltaComparison(record,regime,best).name)]);
   }
-  for (const record of sorted.filter(record=>record.parsed?.isHeterogeneous)) {
-    rows.push([],['Shift-model comparison',record.modelName],['Model','Number of shifts','ΔAIC from best model','Selected fit']);
-    for (const candidate of record.parsed.shiftModels) rows.push([candidate.name,candidate.shifts,candidate.deltaAicc.toFixed(4),candidate.selected?'yes':'no']);
-  }
+  rows.push(['ΔAIC from best model',...columns.map(({record,regime})=>deltaComparison(record,regime,best).value)]);
   return '\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value??'').replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n';
 }
 function exportEntries({input, nativeFiles = input.nativeFiles || [], results, log = ''}) {
@@ -424,5 +430,5 @@ function exportEntries({input, nativeFiles = input.nativeFiles || [], results, l
 
 return Object.freeze({normalizeText,portableParams,readDefaults,readParameters,createParams,createWrapperParams,
   prepareRun,fixPaths,summarizeResults,convert_to_PhyD3,formatDefinedModels,textOf,
-  parseRun,orderedResults,fitName,summaryCSV,exportEntries,makeZip});
+  parseRun,orderedResults,fitName,deltaComparison,summaryCSV,exportEntries,makeZip});
 });

@@ -203,11 +203,6 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <h2>Model summary</h2>
 <p id="comparisonNote" class="note">Models will be sorted by AIC, best first. Rates are rounded to two decimal places.</p>
 <div class="scroll"><table id="summaryTable" aria-label="Model parameter estimates and delta AIC"></table></div>
-<section id="shiftComparison" hidden>
-<h2>Shift-model comparison</h2>
-<p class="note">Each score describes a complete fitted model. Rate estimates above belong to the selected fit.</p>
-<div class="scroll"><table id="shiftComparisonTable"></table></div>
-</section>
 <h2 class="outputsHeading">Tested models results files:</h2>
 <div id="modelOutputs"></div>
 
@@ -441,9 +436,6 @@ function renderResults() {
   const sorted = orderedResults();
   const best = sorted.find(record=>record.aicc!==null)?.aicc;
   const table = document.getElementById('summaryTable'); table.replaceChildren();
-  const shiftSection=document.getElementById('shiftComparison');
-  const shiftTable=document.getElementById('shiftComparisonTable');
-  shiftSection.hidden=true;shiftTable.replaceChildren();
   if (!sorted.length) return;
   const hasHeterogeneous=sorted.some(record=>record.parsed?.isHeterogeneous);
   const multipleRegimes = sorted.some(record=>(record.parsed?.regimes.length||1)>1);
@@ -484,38 +476,23 @@ function renderResults() {
     }
     tbody.append(row);
   });
-  if(!hasHeterogeneous) {
-    const delta=document.createElement('tr'),deltaLabel=document.createElement('th');
-    deltaLabel.scope='row';deltaLabel.textContent='ΔAIC from best model';delta.append(deltaLabel);
-    for(const record of sorted){
-      const td=document.createElement('td');td.colSpan=record.parsed?.regimes.length||1;
-      td.textContent=record.aicc===null?'-':(record.aicc-best).toFixed(4);delta.append(td);
+  const delta=document.createElement('tr'),deltaLabel=document.createElement('th');
+  deltaLabel.scope='row';deltaLabel.textContent='ΔAIC from best model';delta.append(deltaLabel);
+  for(const record of sorted) {
+    for(const regime of record.parsed?.regimes || [{index:1}]) {
+      const comparison=SincopaCore.deltaComparison(record,regime,best);
+      const td=document.createElement('td');td.textContent=comparison.value;
+      td.title='Complete fitted model: '+comparison.name;
+      delta.append(td);
     }
-    tbody.append(delta);
   }
+  tbody.append(delta);
   table.append(tbody);
   const selectedRecord=sorted.find(record=>record.aicc!==null);
   document.getElementById('comparisonNote').textContent=busy?
     'Comparison of completed runs; the best model may change while remaining models run.':
     (selectedRecord ? 'Best model is: ' + fitName(selectedRecord) + '.' : 'Best model is: unavailable.') +
-    (hasHeterogeneous ? ' Rate columns show regimes of the selected fit; the shift-model comparison below shows ΔAIC.' : ' Unreported parameters are shown as −.');
-  if(hasHeterogeneous) {
-    shiftSection.hidden=false;
-    const head=document.createElement('thead'),tr=document.createElement('tr');
-    for(const label of ['Model','ΔAIC from best model']){const th=document.createElement('th');th.scope='col';th.textContent=label;tr.append(th);}
-    head.append(tr);shiftTable.append(head);
-    const body=document.createElement('tbody');
-    for(const record of sorted.filter(record=>record.parsed?.isHeterogeneous)) {
-      for(const candidate of record.parsed.shiftModels) {
-        const row=document.createElement('tr'),name=document.createElement('th'),value=document.createElement('td');
-        name.scope='row';name.textContent=candidate.name+(candidate.selected?' (best)':'');
-        value.textContent=candidate.deltaAicc.toFixed(4);
-        if(candidate.selected)row.className='best';
-        row.append(name,value);body.append(row);
-      }
-    }
-    shiftTable.append(body);
-  }
+    (hasHeterogeneous ? ' Rates show regimes of the selected fit. The ΔAIC row compares complete models with 0, 1, … shifts from left to right; it does not score individual regimes.' : ' Unreported parameters are shown as −.');
   const outputs=document.getElementById('modelOutputs');outputs.replaceChildren();
   for(const url of resultUrls)URL.revokeObjectURL(url);resultUrls.length=0;
   for(const record of sorted){
@@ -584,8 +561,7 @@ runButton.onclick = async () => {
   document.getElementById('downloadZip').disabled = true;
   cancelled = false; busy = true; runButton.disabled = true; stopButton.disabled = false;
   results.length = 0; clearRunData(); log.textContent = '';
-  document.getElementById('shiftComparison').hidden=true;
-  document.getElementById('shiftComparisonTable').replaceChildren();
+
   document.getElementById('summaryTable').replaceChildren();
   document.getElementById('modelOutputs').replaceChildren();
   document.getElementById('inputPreview').hidden = true;
