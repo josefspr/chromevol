@@ -88,6 +88,7 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
     PruneCounts: options.matchCounts || 'PruneTree',
+    jobTitle: options.jobTitle || '',
     AdeqTest: options.adequacy?.enabled ? 'YES' : 'NO',
     MA_AdequacyTest: options.adequacy?.mode === 'selected' ? 'MA_AdequacyTest_user' : 'ChromBestModel',
     MA_userModelSelect: options.adequacy?.selectedName || '',
@@ -109,6 +110,9 @@ $(function () {
   const form = byId('inputForm');
   const button = byId('submitFormBtn');
   const status = byId('runPreparationStatus');
+  const nodeButton=byId('launchNodeBtn');
+  function setStatus(message,error=false){status.textContent=message;status.style.color=error?'#c00':'';}
+  form.addEventListener('invalid',event=>{event.preventDefault();setStatus(event.target.validationMessage,true);event.target.focus();},true);
   const pendingReads = new Map();
   // Replace the original preview handlers so Submit waits for file reading.
   for (const id of ['TreeFile', 'CountsFile']) {
@@ -121,7 +125,7 @@ $(function () {
         if (field.files[0] === file) byId(id + '_txt').value = normalizeText(text);
       });
       pendingReads.set(id, pending);
-      pending.catch(error => { status.textContent = error.message; });
+      pending.catch(error => { setStatus(error.message,true); });
     });
   }
   // These server features are outside the current browser analysis pipeline.
@@ -180,17 +184,18 @@ $(function () {
   window.changedAnalysisType();
   const resetButton = () => {
     button.disabled = false;
-    button.value = 'Submit — Run defined models';
+    button.value = 'Submit';
+    nodeButton.disabled=false;
   };
   resetButton();
   window.addEventListener('pageshow', resetButton);
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
+  async function prepareAction(action) {
     if (button.disabled) return;
-    button.disabled = true;
-    button.value = 'Preparing run…';
-    status.textContent = 'Preparing parameter files…';
+    button.disabled = true;nodeButton.disabled=true;
+    button.value = 'Preparing…';
+    setStatus('Preparing parameter files…');
     try {
+      if(!form.elements.jobTitle.value.trim())throw new Error('Please enter a Job Name.');
       // Check original upload names before consuming file contents. Pasted text has no filename.
       for(const id of ['TreeFile','CountsFile']){
         const file=byId(id).files?.[0];
@@ -207,6 +212,7 @@ $(function () {
         maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
         minCladeSize: byId('minCladeSize').value,
         matchCounts:matching.report.mode,
+        jobTitle:form.elements.jobTitle.value,
         adequacy: {enabled:byId('runAdequacy').checked,
           mode:byId('MA_AdequacyTest22').checked?'selected':'best',
           selectedName:byId('MA_userModelSelect').value,
@@ -230,19 +236,42 @@ $(function () {
         params: createParams(template, model, counts, defaults, options)
       }));
       const startId = crypto.randomUUID();
-      sessionStorage.setItem('sincopaInput', JSON.stringify({
+      const input={
         startId, tree, counts, originalTree, originalCounts, taxaMatching:matching.report, taxaMatchingSummary:matching.summary, ...options,
         jobTitle: form.elements.jobTitle.value,
         params: createWrapperParams(definedModels, defaults, options), nativeFiles,
         nativeParams: nativeFiles[0].params, nativeFilename: nativeFiles[0].filename
-      }));
+      };
+      if(action==='node'){
+        setStatus('Preparing Node launcher ZIP…');
+        ChromevolNodeExport.download(await ChromevolNodeExport.build(input));
+        setStatus('Node launcher ZIP downloaded.');resetButton();return;
+      }
+      sessionStorage.setItem('sincopaInput', JSON.stringify(input));
       sessionStorage.setItem('sincopaPendingStart', startId);
       window.location.href = 'results.html?start=' + encodeURIComponent(startId);
     } catch (error) {
       console.error(error);
-      status.textContent = 'Could not prepare run: ' + error.message;
+      setStatus('Could not prepare run: ' + error.message,true);
       resetButton();
     }
+  }
+  form.addEventListener('submit',event=>{
+    event.preventDefault();
+    return prepareAction(event.submitter?.id==='launchNodeBtn'?'node':'browser');
   });
+  byId('openZipResults').onclick=async()=>{
+    const open=byId('openZipResults'),message=byId('zipResultsStatus');
+    if(open.disabled)return;open.disabled=true;message.style.color='';
+    try{
+      const file=byId('zipResultsFile').files[0];
+      if(!file)throw new Error('Choose a results ZIP file.');
+      message.textContent='Reading results…';
+      const buffer=await file.arrayBuffer();
+      SincopaZipImport.restore(await SincopaZipImport.readZip(buffer));
+      await SincopaZipImport.saveArchive(buffer,file.name);
+      window.location.href='results.html?archive=latest';
+    }catch(error){message.textContent='Could not open ZIP: '+error.message;message.style.color='#c00';open.disabled=false;}
+  };
 });
 })();

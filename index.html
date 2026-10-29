@@ -351,6 +351,12 @@
 	<!-- chromEvol_newGUI.cgi testModels.cgi-->
 	<form id="inputForm" name="myForm" novalidate>
 <p>Browser version: homogeneous and automatic time heterogeneous analyses. Greyed-out server options are not available yet.</p>
+<div id="zipResultsRow" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 24px">
+<label for="zipResultsFile">Upload results ZIP:</label>
+<input id="zipResultsFile" type="file" accept=".zip,application/zip" style="width:auto">
+<button id="openZipResults" type="button">Open results</button>
+<span id="zipResultsStatus" role="status" aria-live="polite"></span>
+</div>
 			
 
 			
@@ -550,9 +556,9 @@
 			</div>
 			
 			<div class="col-md-12 col-lg-12">			
-				<div class="col-md-6 col-lg-6">	
-					<label for="inputEmail"><font face="serif" size="5" color="#4271bc">Email address for notifications:</font></label>
-					<input type="email" class="form-control" name="inputEmail" placeholder="Enter email" required>
+				<div class="col-md-6 col-lg-6" hidden>	
+					<label for="inputEmail" hidden><font face="serif" size="5" color="#4271bc">Email address for notifications:</font></label>
+					<input type="email" class="form-control" name="inputEmail" placeholder="Enter email" disabled hidden>
 					<br>
 				</div>
                 
@@ -567,7 +573,11 @@
             
 			<br>
 			<div class="col-md-12 col-lg-12" style="text-align:left">  
-				<p><input class="submitButton" type="submit" size="7" name="Submit" value="   Submit   " id="submitFormBtn"></p>
+				<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+<input class="submitButton" type="submit" size="7" name="Submit" value="Submit" id="submitFormBtn">
+<button class="submitButton" type="submit" id="launchNodeBtn">Launch Node</button>
+</div>
+<p id="runPreparationStatus" role="status" aria-live="polite" style="margin-top:10px"></p>
 			</div>  
 
 
@@ -599,7 +609,6 @@
 	<script src="js/googleAnalytics.js"></script>	
 
 
-	<p id="runPreparationStatus" role="status" aria-live="polite"></p>
 </form>
 	
 <script>
@@ -1089,7 +1098,10 @@
 	<script src="bootstrap-5.3.3-dist/js/bootstrap.bundle.min.js"></script>
 <script src="chromevol-validation.js?v=match-counts-1"></script>
 <script src="chromevol-match-counts.js?v=1"></script>
-<script src="prepare.js?v=match-counts-1"></script>
+<script src="chromevol-core.js"></script>
+<script src="zip-import.js?v=match-counts-1"></script>
+<script src="chromevol-node-export.js?v=1"></script>
+<script src="prepare.js?v=interface-tuning-1"></script>
 </body>
 
 </html>

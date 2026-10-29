@@ -234,6 +234,7 @@ Glick, Lior, and Itay Mayrose. “ChromEvol: assessing the pattern of chromosome
 if (window.jQuery) jQuery(function () { jQuery('#header').load('header.html'); });
 </script>
 <script src="chromevol-core.js"></script>
+<script src="chromevol-node-export.js?v=1"></script>
 <script src="zip-import.js?v=match-counts-1"></script>
 <script src="chromevol-statistics.js"></script>
 <script src="chromevol-adequacy.js"></script>
@@ -811,46 +812,9 @@ document.getElementById('downloadNodeLauncher').onclick=async()=>{
   const message=document.getElementById('exportStatus');
   button.disabled=true;
   message.textContent='Preparing Node launcher from the current website files…';
-  const sources=[
-    ['run-models.js','run-models.js'],
-    ['chromevol-core.js','chromevol-core.js'],
-    ['chromevol-adequacy.js','chromevol-adequacy.js'],
-    ['chromevol-statistics.js','chromevol-statistics.js'],
-    ['param_NEW_MODELS_anat.txt','param_NEW_MODELS_anat.txt'],
-    ['DEFAULT_PARAM_VALUES.txt','DEFAULT_PARAM_VALUES.txt'],
-    ['chromEvol.js','chromEvol.js'],
-    ['chromEvol.wasm','chromEvol.wasm'],
-    ['README-node.txt','README.txt']
-  ];
   try{
-    const entries=await Promise.all(sources.map(async([source,name])=>{
-      const response=await fetch(source,{cache:'no-store'});
-      if(!response.ok)throw new Error('Could not load '+source+' (HTTP '+response.status+').');
-      return {name,content:new Uint8Array(await response.arrayBuffer())};
-    }));
-    entries.push(
-      {name:'TreesFile.txt',content:input.tree},
-      {name:'countsFile',content:input.counts},
-      {name:'params.txt',content:SincopaCore.portableParams(input.params)},
-      {name:'run-fitting.sh',content:[
-        '#!/bin/sh',
-        'cd -- "$(dirname -- "$0")" || exit 1',
-        'exec node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip "$@" > ./run.log 2>&1',
-        ''
-      ].join('\n')},
-      {name:'run-fitting.cmd',content:[
-        '@echo off','setlocal','cd /d "%~dp0"',
-        'node ".\\run-models.js" --tree ".\\TreesFile.txt" --counts ".\\countsFile" --params ".\\params.txt" --output ".\\results.zip" %* > ".\\run.log" 2>&1',
-        'exit /b %errorlevel%',''
-      ].join('\r\n')},
-      {name:'run-fitting.ps1',content:[
-        '# Run from any working directory. Extra arguments are passed to the launcher.',
-        '& node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip") @args > (Join-Path $PSScriptRoot "run.log") 2>&1',
-        'exit $LASTEXITCODE',''
-      ].join('\r\n')}
-    );
-    entries.push(...matchingEntries());
-    downloadBlob(makeZip(entries),'chromevol-node-launcher.zip');
+    const archive=await ChromevolNodeExport.build(input);
+    downloadBlob(archive.blob,archive.filename);
     message.textContent='Node launcher ZIP created with current code, your inputs, parameters and run scripts.';
   }catch(error){
     console.error(error);
