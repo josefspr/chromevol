@@ -33,8 +33,11 @@ A PowerShell script is also included: .\run-fitting.ps1
 If your execution policy blocks PowerShell scripts, use run-fitting.cmd.
 
 RESULT
-The fitting scripts use TreesFile.txt, countsFile and params.txt in their own
-folder and create results.zip there. They fit the defined models; heterogeneous
+The scripts use TreesFile.txt, countsFile and params.txt in their own folder
+and create results.zip there. They fit the defined models and automatically
+run adequacy if Run adequacy test was checked in the website form. They use the
+saved best/selected model choice and simulation count. If the checkbox was off,
+they run fitting only. They fit the defined models; heterogeneous
 parameters trigger the complete Background/shift model search.
 Keep the terminal open and the computer awake while running.
 The scripts return the launcher's exit code (0 for success).
@@ -43,9 +46,14 @@ The equivalent direct command, on Windows or Linux, is:
 node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip
 
 OPTIONAL ADEQUACY
-The default scripts run fitting only. Adequacy needs an explicit --adequacy flag
-in Node, even if the browser adequacy checkbox was enabled. Extra script arguments
-are forwarded to the launcher.
+The default scripts follow the adequacy checkbox, model choice and simulation
+count saved in params.txt. No extra command-line flags are needed.
+Explicit command-line arguments override the saved settings. Extra script arguments
+are forwarded to the launcher. To disable adequacy for one run, append:
+--adequacy none
+
+To override the simulation count, append --adequacy-sims 10 (or 1000).
+The following commands explicitly enable adequacy on the best model:
 
 Linux diagnostic check:
 sh ./run-fitting.sh --adequacy best --adequacy-sims 10

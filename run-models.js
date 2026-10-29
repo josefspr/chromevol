@@ -76,6 +76,23 @@ if(process.argv[2]==='--internal-worker') {
   main().catch(error=>{console.error('Error: '+error.message);process.exitCode=1;});
 }
 
+// Explicit CLI options override the settings saved by the website form.
+function resolveAdequacyOptions(opts, settings) {
+  const savedModes={ChromBestModel:'best',MA_AdequacyTest_user:'selected',AllModels:'all'};
+  let mode=opts.adequacy;
+  if(mode===undefined&&String(settings.AdeqTest||'').trim().toUpperCase()==='YES'){
+    mode=savedModes[settings.MA_AdequacyTest||'ChromBestModel'];
+    if(!mode)throw new Error('Unknown saved adequacy model selection: '+settings.MA_AdequacyTest);
+  }
+  if(mode==='none')mode=undefined;
+  if(mode&&!['best','selected','all'].includes(mode))throw new Error('--adequacy must be best, selected, all or none.');
+  const selectedName=opts['adequacy-model']??settings.MA_userModelSelect;
+  if(mode==='selected'&&!selectedName)throw new Error('Choose an adequacy model in params.txt or use --adequacy-model NAME.');
+  const simulations=Number(opts['adequacy-sims']??settings.adequacySimulations??1000);
+  if(!Number.isInteger(simulations)||simulations<1)throw new Error('Adequacy simulation count must be a positive integer.');
+  return {mode,selectedName,simulations};
+}
+
 async function main() {
   const args=process.argv.slice(2),opts={};
   if(!args.length||args.includes('--help')) {
@@ -87,9 +104,12 @@ Optional paths (default: beside this script):
   --wasm chromEvol.wasm
   --template param_NEW_MODELS_anat.txt
   --defaults DEFAULT_PARAM_VALUES.txt
-  --adequacy best|selected|all (homogeneous or heterogeneous model adequacy)
-  --adequacy-model NAME (for selected)
-  --adequacy-sims 1000 (default; use 10 for a quick check)
+  --adequacy best|selected|all|none (overrides the saved checkbox/model choice)
+  --adequacy-model NAME (overrides the saved selected model)
+  --adequacy-sims N (overrides saved count; default 1000)
+
+Without these options, adequacy follows AdeqTest, MA_AdequacyTest,
+MA_userModelSelect and adequacySimulations in params.txt.
 
 The ZIP matches the browser export. No npm installation is required.`);
     return;
@@ -113,12 +133,12 @@ The ZIP matches the browser export. No npm installation is required.`);
   const input=core.prepareRun({tree:read(opts.tree),counts:read(opts.counts),params:original,
     template:read(opts.template||local('param_NEW_MODELS_anat.txt')),
     defaultsText:read(opts.defaults||local('DEFAULT_PARAM_VALUES.txt'))});
-  const mode=opts.adequacy;
-  if(mode&&!['best','selected','all'].includes(mode))throw new Error('--adequacy must be best, selected or all.');
-  if(mode==='selected'&&!opts['adequacy-model'])throw new Error('Use --adequacy-model NAME with selected.');
-  const simulations=Number(opts['adequacy-sims']||1000);
-  if(!Number.isInteger(simulations)||simulations<1)throw new Error('--adequacy-sims must be a positive integer.');
+  const {mode,selectedName,simulations}=resolveAdequacyOptions(opts,settings);
   const results=[],logs=[],adequacyEntries=[];let adequacyFailed=false;
+  if(mode){
+    const heading='Model adequacy enabled: '+mode+(mode==='selected'?' ('+selectedName+')':'')+'; '+simulations+' simulations.';
+    console.log(heading);logs.push(heading+'\n');
+  }
   let active,stopped=false;
   const stop=()=>{stopped=true;active?.kill();};
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
@@ -151,7 +171,7 @@ The ZIP matches the browser export. No npm installation is required.`);
     }
     if(mode&&!stopped) {
       let selected=[];
-      try {selected=adequacy.selectModels(results,mode,opts['adequacy-model']);}
+      try {selected=adequacy.selectModels(results,mode,selectedName);}
       catch(error){
         adequacyFailed=true;
         adequacyEntries.push({name:'adequacy/selection_error.txt',content:error.message});
