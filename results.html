@@ -217,7 +217,6 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <p><a href="index.html">Prepare another input</a> | <a href="zip_viewer.html">Open saved results ZIP</a></p>
 <section aria-labelledby="downloadHeading">
 <h2 id="downloadHeading">Download run</h2>
-<button id="downloadParams" type="button" disabled>Download parameters file</button>
 <button id="downloadNodeLauncher" type="button">Download Node launcher</button>
 <button id="downloadZip" type="button" disabled>Download all results (ZIP)</button>
 <p id="exportStatus" role="status" class="note"></p>
@@ -778,9 +777,7 @@ function downloadBlob(blob,filename) {
   link.href=url;link.download=filename;document.body.append(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
-const paramsDownload=document.getElementById('downloadParams');
-paramsDownload.disabled=!input?.params;
-paramsDownload.onclick=()=>downloadBlob(new Blob([SincopaCore.portableParams(input.params)],{type:'text/plain;charset=utf-8'}),'params.txt');
+document.getElementById('downloadNodeLauncher').disabled=!input?.params||!input?.tree||!input?.counts;
 document.getElementById('downloadNodeLauncher').onclick=async()=>{
   const button=document.getElementById('downloadNodeLauncher');
   if(button.disabled)return;
@@ -804,8 +801,29 @@ document.getElementById('downloadNodeLauncher').onclick=async()=>{
       if(!response.ok)throw new Error('Could not load '+source+' (HTTP '+response.status+').');
       return {name,content:new Uint8Array(await response.arrayBuffer())};
     }));
+    entries.push(
+      {name:'TreesFile.txt',content:input.tree},
+      {name:'countsFile',content:input.counts},
+      {name:'params.txt',content:SincopaCore.portableParams(input.params)},
+      {name:'run-fitting.sh',content:[
+        '#!/bin/sh',
+        'cd -- "$(dirname -- "$0")" || exit 1',
+        'exec node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip "$@"',
+        ''
+      ].join('\n')},
+      {name:'run-fitting.cmd',content:[
+        '@echo off','setlocal','cd /d "%~dp0"',
+        'node ".\\run-models.js" --tree ".\\TreesFile.txt" --counts ".\\countsFile" --params ".\\params.txt" --output ".\\results.zip" %*',
+        'exit /b %errorlevel%',''
+      ].join('\r\n')},
+      {name:'run-fitting.ps1',content:[
+        '# Run from any working directory. Extra arguments are passed to the launcher.',
+        '& node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip") @args',
+        'exit $LASTEXITCODE',''
+      ].join('\r\n')}
+    );
     downloadBlob(makeZip(entries),'chromevol-node-launcher.zip');
-    message.textContent='Node launcher ZIP created from the current website files.';
+    message.textContent='Node launcher ZIP created with current code, your inputs, parameters and run scripts.';
   }catch(error){
     console.error(error);
     message.textContent='Could not create Node launcher ZIP: '+error.message;

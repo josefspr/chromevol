@@ -1,79 +1,74 @@
-chromEvol — Node.js launcher for Windows and Linux
+chromEvol Node launcher — this job's inputs and current website code
 
-1. PREPARE
+PREPARATION
+Extract the entire ZIP into a folder. Keep all its files together.
+Node.js must be installed: check with node --version in a terminal.
+If necessary install it from https://nodejs.org and reopen the terminal.
+No npm packages, Python or R are required.
 
-Extract this ZIP to a folder. Keep all included files together.
-Node.js must be installed. Check in PowerShell (Windows) or a terminal (Linux):
+The ZIP includes:
+- Current deployed run-models.js, core, adequacy and statistics modules
+- Current parameter template/defaults and matching chromEvol.js / chromEvol.wasm
+- Your tree as TreesFile.txt, counts as countsFile, and original params.txt
+- Linux, Windows command prompt and PowerShell fitting scripts
+All code, inputs and parameters are in the same extracted folder.
+You do not need to save the inputs or parameters separately, rename files,
+or edit virtual filesystem paths. Keep chromEvol.js and chromEvol.wasm paired
+when updating them.
 
-node --version
+LINUX
+Open a terminal in the extracted folder and run:
 
-If the command is unavailable, install Node.js from https://nodejs.org and reopen
-the terminal. No npm packages, Python or R are required by this launcher.
+sh ./run-fitting.sh
 
-The ZIP contains the launcher, shared calculation modules, parameter template,
-default settings, and a matching chromEvol.js / chromEvol.wasm pair.
-If updating the WASM build later, replace BOTH chromEvol.js and chromEvol.wasm.
+Alternatively: chmod +x run-fitting.sh, then ./run-fitting.sh
+The script also works when invoked by its full path from another directory.
 
-2. SAVE YOUR INPUTS
+WINDOWS
+In PowerShell or Command Prompt, open the extracted folder and run:
 
-On the website results page, click Download parameters file and save params.txt.
-Use your original tree and chromosome counts files. Copy all three inputs into
-this folder, or pass their full paths to the launcher.
-params.txt must be the website's original wrapper file containing definedModels
-JSON, rather than a native param_Model.txt.
-The input file names are arbitrary: the command-line arguments specify them.
-Homogeneous or heterogeneous analysis and defined models come from params.txt.
-The program creates its own virtual-filesystem paths; you do not need to edit them.
+.\run-fitting.cmd
 
-3. RUN FITTING
+A PowerShell script is also included: .\run-fitting.ps1
+If your execution policy blocks PowerShell scripts, use run-fitting.cmd.
 
-Open PowerShell or a terminal in the extracted folder. The following one-line
-command works on both Windows and Linux. Substitute your input file names:
+RESULT
+The fitting scripts use TreesFile.txt, countsFile and params.txt in their own
+folder and create results.zip there. They fit the defined models; heterogeneous
+parameters trigger the complete Background/shift model search.
+Keep the terminal open and the computer awake while running.
+The scripts return the launcher's exit code (0 for success).
 
-node ./run-models.js --tree "./TreesFile.txt" --counts "./countsFile" --params "./params.txt" --output "./results.zip"
+The equivalent direct command, on Windows or Linux, is:
+node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip
 
-Quotes allow paths containing spaces. Use your preferred output ZIP name.
-The launcher fits all defined models (one Background search for heterogeneous
-analysis), calculates the summary, and writes the results ZIP.
+OPTIONAL ADEQUACY
+The default scripts run fitting only. Adequacy needs an explicit --adequacy flag
+in Node, even if the browser adequacy checkbox was enabled. Extra script arguments
+are forwarded to the launcher.
 
-4. OPTIONAL MODEL ADEQUACY
+Linux diagnostic check:
+sh ./run-fitting.sh --adequacy best --adequacy-sims 10
 
-Adequacy needs an explicit --adequacy argument in Node, even if the downloaded
-params.txt has the browser adequacy checkbox enabled.
+Windows diagnostic check:
+.\run-fitting.cmd --adequacy best --adequacy-sims 10
 
-Quick diagnostic check on the best model (10 simulations):
-
-node ./run-models.js --tree "./TreesFile.txt" --counts "./countsFile" --params "./params.txt" --adequacy best --adequacy-sims 10 --output "./results-ma-check.zip" > ma-check.log 2>&1
-
-Full original simulation count (1000 simulations):
-
-node ./run-models.js --tree "./TreesFile.txt" --counts "./countsFile" --params "./params.txt" --adequacy best --adequacy-sims 1000 --output "./results-ma.zip" > ma.log 2>&1
-
-For one named homogeneous model, replace --adequacy best with:
+Replace 10 with 1000 for the original full simulation count.
+To test one named homogeneous model, replace --adequacy best with:
 --adequacy selected --adequacy-model "Dys"
-Use the actual model name from your parameters.
-For heterogeneous analysis, --adequacy best tests the whole final fitted model,
-including every selected rate regime/shift. The archive folder retains the launch
-name Background, while adequacy.json records the fitted name, such as 1-shift.
-The calculation has the same supported-data scope as the website adequacy code:
-rooted binary tree, matching taxa, integer counts without missing data, and no
-digits in the taxon-name portion. Partition labels cannot contain spaces,
-parentheses, commas or semicolons.
-Ten-simulation results are marked diagnostic. Use 1000 for the original workflow.
-Raw simulations, PVs, CSV/JSON statistics and correction/retry reports are included.
+For heterogeneous runs, best tests the complete final fit including its shifts.
+Ten-simulation results are diagnostic only. The existing adequacy data restrictions
+still apply: rooted binary tree, matching taxa, integer counts without missing data,
+no digits in taxon-name portions, and no spaces/parentheses/commas/semicolons in
+heterogeneous partition taxon labels.
 
-5. DISPLAY YOUR RESULTS
+VIEWING RESULTS
+Open zip_viewer.html on the website and upload results.zip. The results page
+shows the summary, output links and any adequacy p-values. ZIP input is read
+locally by the browser. You may also extract the output ZIP to inspect its files.
 
-Open zip_viewer.html on the website and upload the generated results ZIP. It opens
-results.html with the model summary, model output links and any adequacy PVs table.
-The ZIP is read locally by the browser. You can also extract it to inspect files.
-
-6. NOTES
-
-Keep the terminal open while running; keep the computer awake.
-Ctrl+C stops the launcher. Completed model outputs are retained when possible.
-Node runs use direct WASM loading in separate processes, preserving the earlier
-performance fix. Console output can be redirected as shown above.
-To list options: node ./run-models.js --help
-The launcher does not require GitHub credentials or an internet connection to run
-after Node.js is installed and these files have been downloaded.
+UPDATES
+Code and WASM in this package were fetched from the deployed website when you
+clicked Download Node launcher. Download again to obtain later deployed code.
+The package runs locally without internet once Node.js is installed.
+For all launcher options: node ./run-models.js --help
