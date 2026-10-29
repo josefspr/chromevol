@@ -28,18 +28,18 @@ async function build(input){
       {name:'TreesFile.txt',content:input.tree},
       {name:'countsFile',content:input.counts},
       {name:'params.txt',content:root.SincopaCore.portableParams(input.params)},
-      {name:'run-fitting.sh',content:[
+      {name:'run-chromevol.sh',content:[
         '#!/bin/sh',
         'cd -- "$(dirname -- "$0")" || exit 1',
         'exec node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip "$@" > ./run.log 2>&1',
         ''
       ].join('\n')},
-      {name:'run-fitting.cmd',content:[
+      {name:'run-chromevol.cmd',content:[
         '@echo off','setlocal','cd /d "%~dp0"',
         'node ".\\run-models.js" --tree ".\\TreesFile.txt" --counts ".\\countsFile" --params ".\\params.txt" --output ".\\results.zip" %* > ".\\run.log" 2>&1',
         'exit /b %errorlevel%',''
       ].join('\r\n')},
-      {name:'run-fitting.ps1',content:[
+      {name:'run-chromevol.ps1',content:[
         '# Run from any working directory. Extra arguments are passed to the launcher.',
         '& node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip") @args > (Join-Path $PSScriptRoot "run.log") 2>&1',
         'exit $LASTEXITCODE',''
