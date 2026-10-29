@@ -409,10 +409,10 @@
 				<font face="serif" size="5" color="#4271bc">Match counts to phylogeny:</font>
 				<a id="popover1" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="(1) Remove from the tree taxa without counts data OR (2) Assign the missing taxa with an X in the counts data.<br>NOTE: model adequacy test does not consider missing data.">?</a>
 				<br>
-				<input type="radio" name="PruneCounts" value="PruneTree" id="PruneCounts" class="form-radio" checked="checked"><label for="radio-two">
+				<input type="radio" name="PruneCounts" value="PruneTree" id="matchPruneTree" class="form-radio" checked="checked"><label for="matchPruneTree">
 				&nbsp&nbsp Remove tips with no counts data</label>
 				<br>
-				<input type="radio" name="PruneCounts" value="Xcounts" id="PruneCounts" class="form-radio"><label for="radio-two">
+				<input type="radio" name="PruneCounts" value="Xcounts" id="matchXcounts" class="form-radio"><label for="matchXcounts">
 				&nbsp&nbsp Assign taxa with no counts as missing data ('X')</label>
 				</div>
 			</div>
@@ -1087,8 +1087,9 @@
 
 	</div>
 	<script src="bootstrap-5.3.3-dist/js/bootstrap.bundle.min.js"></script>
-<script src="chromevol-validation.js?v=1"></script>
-<script src="prepare.js?v=validation-1"></script>
+<script src="chromevol-validation.js?v=match-counts-1"></script>
+<script src="chromevol-match-counts.js?v=1"></script>
+<script src="prepare.js?v=match-counts-1"></script>
 </body>
 
 </html>

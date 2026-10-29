@@ -22,18 +22,19 @@ function validate_tree(text){
   }
   function label(){space();const start=p;while(p<src.length&&!/[(),:;\[\]]/.test(src[p]))p++;return src.slice(start,p).trim();}
   function node(){
-    space();let internal=false;
-    if(src[p]==='('){internal=true;p++;node();space();while(src[p]===','){p++;node();space();}if(src[p]!==')')fail();p++;}
+    space();let internal=false;const children=[];
+    if(src[p]==='('){internal=true;p++;children.push(node());space();while(src[p]===','){p++;children.push(node());space();}if(src[p]!==')')fail();p++;}
     const name=label();if(!internal){if(!name)fail();leafCount++;}
-    space();
+    space();let length=null;
     if(src[p]===':'){
       p++;space();const m=src.slice(p).match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i);
-      if(!m||!Number.isFinite(Number(m[0])))fail();p+=m[0].length;space();
+      if(!m||!Number.isFinite(Number(m[0])))fail();length=Number(m[0]);p+=m[0].length;space();
     }
+    return {name,length,children};
   }
-  node();space();if(src[p]!==';')fail();p++;space();if(p!==src.length)fail();
+  const tree=node();space();if(src[p]!==';')fail();p++;space();if(p!==src.length)fail();
   if(leafCount<5)throw new Error('Error in format of tree file: at least 5 tips are required.');
-  return {text:src,leafCount};
+  return {text:src,leafCount,tree};
 }
 function validate_counts(text){
   const src=normalize(text),lines=src.split('\n');let expectName=true,recordCount=0,isDistribute=false;

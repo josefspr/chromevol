@@ -87,6 +87,7 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     analysisType: options.analysisType, transitionPoints: 'Automatic',
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
+    PruneCounts: options.matchCounts || 'PruneTree',
     AdeqTest: options.adequacy?.enabled ? 'YES' : 'NO',
     MA_AdequacyTest: options.adequacy?.mode === 'selected' ? 'MA_AdequacyTest_user' : 'ChromBestModel',
     MA_userModelSelect: options.adequacy?.selectedName || '',
@@ -124,7 +125,7 @@ $(function () {
     });
   }
   // These server features are outside the current browser analysis pipeline.
-  form.querySelectorAll('[name="PruneCounts"], #DiscreteTraitModel, #UserDefined, [name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
+  form.querySelectorAll('#DiscreteTraitModel, #UserDefined, [name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
     field.disabled = true;
     field.required = false;
     field.title = 'Not available in the browser version yet';
@@ -198,18 +199,21 @@ $(function () {
       await Promise.all([...pendingReads.values()]);
       const treeCheck=ChromevolValidation.validate_tree(normalizeText(byId('TreeFile_txt').value));
       const countsCheck=ChromevolValidation.validate_counts(normalizeText(byId('CountsFile_txt').value));
-      const tree=treeCheck.text,counts=countsCheck.text;
-      byId('TreeFile_txt').value=tree;
+      const originalTree=treeCheck.text,originalCounts=countsCheck.text;
+      const matching=ChromevolMatchCounts.matchCounts(originalTree,originalCounts,form.elements.PruneCounts.value);
+      const tree=matching.tree,counts=matching.counts;
       const options = {
         analysisType: byId('TimeHeterogeneousModel').checked ? 'TimeHeterogeneous' : 'Homogenous',
         maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
         minCladeSize: byId('minCladeSize').value,
+        matchCounts:matching.report.mode,
         adequacy: {enabled:byId('runAdequacy').checked,
           mode:byId('MA_AdequacyTest22').checked?'selected':'best',
           selectedName:byId('MA_userModelSelect').value,
           simulations:Number(byId('adequacySimulations').value)}
       };
       if(options.adequacy.enabled){
+        if(counts.split(/\r?\n/).some(line=>line.trim()&&!line.startsWith('>')&&!/^\d+$/.test(line.trim())))throw new Error('Model adequacy currently requires integer counts without X or distributions. Uncheck Run adequacy test to fit these data.');
         if(!Number.isInteger(options.adequacy.simulations)||options.adequacy.simulations<1)throw new Error('Choose a positive whole number of adequacy simulations.');
         if(options.adequacy.mode==='selected'&&!options.adequacy.selectedName)throw new Error('Choose a model for the adequacy test.');
       }
@@ -227,7 +231,7 @@ $(function () {
       }));
       const startId = crypto.randomUUID();
       sessionStorage.setItem('sincopaInput', JSON.stringify({
-        startId, tree, counts, ...options,
+        startId, tree, counts, originalTree, originalCounts, taxaMatching:matching.report, taxaMatchingSummary:matching.summary, ...options,
         jobTitle: form.elements.jobTitle.value,
         params: createWrapperParams(definedModels, defaults, options), nativeFiles,
         nativeParams: nativeFiles[0].params, nativeFilename: nativeFiles[0].filename
