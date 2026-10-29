@@ -1,51 +1,54 @@
-chromEvol Node launcher — this job's inputs and current website code
+ChromEvol Node launcher
 
 PREPARATION
+-----------
 Extract the entire ZIP into a folder. Keep all its files together.
-Node.js must be installed: check with node --version in a terminal.
+Node.js must be installed: 
+check with node --version in a terminal.
 If necessary install it from https://nodejs.org and reopen the terminal.
 No npm packages, Python or R are required.
 
 The ZIP includes:
+-----------------
 - Current deployed run-models.js, core, adequacy and statistics modules
 - Current parameter template/defaults and matching chromEvol.js / chromEvol.wasm
 - Your tree as TreesFile.txt, counts as countsFile, and original params.txt
-- Linux, Windows command prompt and PowerShell fitting scripts
+- Linux, Windows command prompt and PowerShell run-chromevol scripts
 All code, inputs and parameters are in the same extracted folder.
 You do not need to save the inputs or parameters separately, rename files,
 or edit virtual filesystem paths. Keep chromEvol.js and chromEvol.wasm paired
 when updating them.
 
+RUNNING CHROMEVOL 
+-----------------
 LINUX
 Open a terminal in the extracted folder and run:
 
-sh ./run-fitting.sh
+sh ./run-chromevol.sh
 
-Alternatively: chmod +x run-fitting.sh, then ./run-fitting.sh
+Alternatively: chmod +x run-chromevol.sh, then ./run-chromevol.sh
 The script also works when invoked by its full path from another directory.
 
 WINDOWS
 In PowerShell or Command Prompt, open the extracted folder and run:
 
-.\run-fitting.cmd
+.\run-chromevol.cmd
 
-A PowerShell script is also included: .\run-fitting.ps1
+A PowerShell script is also included: .\run-chromevol.ps1
 If your execution policy blocks PowerShell scripts, use run-fitting.cmd.
 
-RESULT
+RESULTS
+-------
 The scripts use TreesFile.txt, countsFile and params.txt in their own folder
-and create results.zip there. They fit the defined models and automatically
-run adequacy if Run adequacy test was checked in the website form. They use the
-saved best/selected model choice and simulation count. If the checkbox was off,
-they run fitting only. They fit the defined models; heterogeneous
-parameters trigger the complete Background/shift model search.
-Keep the terminal open and the computer awake while running.
+and create results.zip there. 
+
 The scripts return the launcher's exit code (0 for success).
 
 The equivalent direct command, on Windows or Linux, is:
 node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip
 
 OPTIONAL ADEQUACY
+-----------------
 The default scripts follow the adequacy checkbox, model choice and simulation
 count saved in params.txt. No extra command-line flags are needed.
 Explicit command-line arguments override the saved settings. Extra script arguments
@@ -71,7 +74,8 @@ no digits in taxon-name portions, and no spaces/parentheses/commas/semicolons in
 heterogeneous partition taxon labels.
 
 VIEWING RESULTS
-Open zip_viewer.html on the website and upload results.zip. The results page
+---------------
+Open homepage (index.html) on the website and upload results.zip. The results page
 shows the summary, output links and any adequacy p-values. ZIP input is read
 locally by the browser. You may also extract the output ZIP to inspect its files.
 
@@ -88,3 +92,4 @@ overwrites run.log. The script still returns the Node launcher exit code.
 Linux: tail -f run.log
 PowerShell: Get-Content .\run.log -Wait
 Open a second terminal to monitor the log while the first one runs the job.
+
