@@ -218,6 +218,7 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <section aria-labelledby="downloadHeading">
 <h2 id="downloadHeading">Download run</h2>
 <button id="downloadParams" type="button" disabled>Download parameters file</button>
+<button id="downloadNodeLauncher" type="button">Download Node launcher</button>
 <button id="downloadZip" type="button" disabled>Download all results (ZIP)</button>
 <p id="exportStatus" role="status" class="note"></p>
 </section>
@@ -780,6 +781,36 @@ function downloadBlob(blob,filename) {
 const paramsDownload=document.getElementById('downloadParams');
 paramsDownload.disabled=!input?.params;
 paramsDownload.onclick=()=>downloadBlob(new Blob([SincopaCore.portableParams(input.params)],{type:'text/plain;charset=utf-8'}),'params.txt');
+document.getElementById('downloadNodeLauncher').onclick=async()=>{
+  const button=document.getElementById('downloadNodeLauncher');
+  if(button.disabled)return;
+  const message=document.getElementById('exportStatus');
+  button.disabled=true;
+  message.textContent='Preparing Node launcher from the current website files…';
+  const sources=[
+    ['run-models.js','run-models.js'],
+    ['chromevol-core.js','chromevol-core.js'],
+    ['chromevol-adequacy.js','chromevol-adequacy.js'],
+    ['chromevol-statistics.js','chromevol-statistics.js'],
+    ['param_NEW_MODELS_anat.txt','param_NEW_MODELS_anat.txt'],
+    ['DEFAULT_PARAM_VALUES.txt','DEFAULT_PARAM_VALUES.txt'],
+    ['chromEvol.js','chromEvol.js'],
+    ['chromEvol.wasm','chromEvol.wasm'],
+    ['README-node.txt','README.txt']
+  ];
+  try{
+    const entries=await Promise.all(sources.map(async([source,name])=>{
+      const response=await fetch(source,{cache:'no-store'});
+      if(!response.ok)throw new Error('Could not load '+source+' (HTTP '+response.status+').');
+      return {name,content:new Uint8Array(await response.arrayBuffer())};
+    }));
+    downloadBlob(makeZip(entries),'chromevol-node-launcher.zip');
+    message.textContent='Node launcher ZIP created from the current website files.';
+  }catch(error){
+    console.error(error);
+    message.textContent='Could not create Node launcher ZIP: '+error.message;
+  }finally{button.disabled=false;}
+};
 document.getElementById('downloadZip').onclick=()=>{
   if(busy||!results.length)return;
   const message=document.getElementById('exportStatus');
