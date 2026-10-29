@@ -80,3 +80,11 @@ Code and WASM in this package were fetched from the deployed website when you
 clicked Download Node launcher. Download again to obtain later deployed code.
 The package runs locally without internet once Node.js is installed.
 For all launcher options: node ./run-models.js --help
+
+RUN LOG
+All included run scripts redirect stdout and stderr to run.log in the extracted
+job folder. The terminal remains quiet while the program is running. Each new run
+overwrites run.log. The script still returns the Node launcher exit code.
+Linux: tail -f run.log
+PowerShell: Get-Content .\run.log -Wait
+Open a second terminal to monitor the log while the first one runs the job.
