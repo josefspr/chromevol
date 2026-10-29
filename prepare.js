@@ -190,9 +190,16 @@ $(function () {
     button.value = 'Preparing run…';
     status.textContent = 'Preparing parameter files…';
     try {
+      // Check original upload names before consuming file contents. Pasted text has no filename.
+      for(const id of ['TreeFile','CountsFile']){
+        const file=byId(id).files?.[0];
+        if(file)ChromevolValidation.validate_filename(file.name);
+      }
       await Promise.all([...pendingReads.values()]);
-      const tree = normalizeText(byId('TreeFile_txt').value);
-      const counts = normalizeText(byId('CountsFile_txt').value);
+      const treeCheck=ChromevolValidation.validate_tree(normalizeText(byId('TreeFile_txt').value));
+      const countsCheck=ChromevolValidation.validate_counts(normalizeText(byId('CountsFile_txt').value));
+      const tree=treeCheck.text,counts=countsCheck.text;
+      byId('TreeFile_txt').value=tree;
       const options = {
         analysisType: byId('TimeHeterogeneousModel').checked ? 'TimeHeterogeneous' : 'Homogenous',
         maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
