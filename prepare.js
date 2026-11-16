@@ -84,7 +84,7 @@ function readDefaults(text) {
 }
 function createWrapperParams(definedModels, defaults, options = {analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'}) {
   const settings = {...defaults,
-    analysisType: options.analysisType, transitionPoints: 'Automatic',
+    analysisType: options.analysisType, transitionPoints: options.transitionPoints || 'Automatic', userDefinedClades: JSON.stringify(options.userDefinedClades || []),
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
     PruneCounts: options.matchCounts || 'PruneTree',
@@ -129,7 +129,7 @@ $(function () {
     });
   }
   // These server features are outside the current browser analysis pipeline.
-  form.querySelectorAll('#DiscreteTraitModel, #UserDefined, [name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
+  form.querySelectorAll('#DiscreteTraitModel, [name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
     field.disabled = true;
     field.required = false;
     field.title = 'Not available in the browser version yet';
@@ -163,6 +163,17 @@ $(function () {
   let heterogeneous = false;
   let backgroundModels = null;
   let maximumRegimes = '2';
+  function syncTransitionPoints(){
+    const active=byId('TimeHeterogeneousModel').checked;
+    const manual=active&&byId('UserDefined').checked;
+    byId('UserDefined').disabled=!active;
+    byId('userDefinedCladesDiv').hidden=!manual;
+    byId('userDefinedClades').disabled=!manual;
+    byId('maxRateRegimes').disabled=manual;
+    byId('minCladeSize').disabled=manual;
+  }
+  byId('Automatic').addEventListener('change',syncTransitionPoints);
+  byId('UserDefined').addEventListener('change',syncTransitionPoints);
   window.changedAnalysisType = function () {
     const next = byId('TimeHeterogeneousModel').checked;
     if (next && !heterogeneous) homogeneousModels = JSON.stringify(data);
@@ -189,7 +200,7 @@ $(function () {
       num_data_col = data.length;
       LoadParamTable();
     }
-    syncAdequacy();
+    syncAdequacy();syncTransitionPoints();
   };
   window.changedAnalysisType();
   const resetButton = () => {
@@ -222,6 +233,8 @@ $(function () {
         maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
         minCladeSize: byId('minCladeSize').value,
         matchCounts:matching.report.mode,
+        transitionPoints:byId('TimeHeterogeneousModel').checked&&byId('UserDefined').checked?'UserDefined':'Automatic',
+        userDefinedClades:byId('userDefinedClades').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
         jobTitle:form.elements.jobTitle.value,
         adequacy: {enabled:byId('runAdequacy').checked,
           mode:byId('MA_AdequacyTest22').checked?'selected':'best',
@@ -241,10 +254,14 @@ $(function () {
       ]);
       const defaults = readDefaults(defaultsText);
       byId('definedModels').value = JSON.stringify(definedModels);
-      const nativeFiles = definedModels.map((model, index) => ({
+      let nativeFiles = definedModels.map((model, index) => ({
         id: index, modelName: model.name, filename: 'param_' + model.name + '.txt',
         params: createParams(template, model, counts, defaults, options)
       }));
+      if(options.transitionPoints==='UserDefined'){
+        nativeFiles=nativeFiles.map(model=>ChromevolUserDefined.configure(model,tree,options.userDefinedClades));
+        options.maxRateRegimes=String(options.userDefinedClades.length+1);
+      }
       const startId = crypto.randomUUID();
       const input={
         startId, tree, counts, originalTree, originalCounts, taxaMatching:matching.report, taxaMatchingSummary:matching.summary, ...options,

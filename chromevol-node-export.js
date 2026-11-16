@@ -11,6 +11,8 @@ async function build(input){
   const sources=[
     ['run-models.js','run-models.js'],
     ['chromevol-core.js','chromevol-core.js'],
+    ['chromevol-user-defined.js','chromevol-user-defined.js'],
+    ['chromevol-validation.js','chromevol-validation.js'],
     ['chromevol-adequacy.js','chromevol-adequacy.js'],
     ['chromevol-statistics.js','chromevol-statistics.js'],
     ['param_NEW_MODELS_anat.txt','param_NEW_MODELS_anat.txt'],

@@ -164,7 +164,7 @@ The ZIP matches the browser export. No npm installation is required.`);
       if(stopped)break;
       const heading='Running '+(model.id+1)+'/'+input.nativeFiles.length+': '+model.modelName;
       console.log(heading);logs.push(heading+'\n');
-      const data=await runJob({tree:input.tree,counts:input.counts,params:model.params},model.modelName);
+      const data=await runJob({tree:input.tree,counts:input.counts,params:model.params,extraFiles:model.extraFiles||[]},model.modelName);
       const record=core.parseRun(model,data.files||[],data.error||(data.code!==0?'Exit code '+data.code:undefined));
       if(!record.error&&!record.files.some(file=>file.name==='chromEvol.res'))record.summaryError='chromEvol.res was not generated.';
       results.push(record);

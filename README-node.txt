@@ -1,26 +1,21 @@
-ChromEvol Node launcher
+chromEvol Node launcher — this job's inputs and current website code
 
 PREPARATION
------------
 Extract the entire ZIP into a folder. Keep all its files together.
-Node.js must be installed: 
-check with node --version in a terminal.
+Node.js must be installed: check with node --version in a terminal.
 If necessary install it from https://nodejs.org and reopen the terminal.
 No npm packages, Python or R are required.
 
 The ZIP includes:
------------------
 - Current deployed run-models.js, core, adequacy and statistics modules
 - Current parameter template/defaults and matching chromEvol.js / chromEvol.wasm
 - Your tree as TreesFile.txt, counts as countsFile, and original params.txt
-- Linux, Windows command prompt and PowerShell run-chromevol scripts
+- Linux, Windows command prompt and PowerShell fitting scripts
 All code, inputs and parameters are in the same extracted folder.
 You do not need to save the inputs or parameters separately, rename files,
 or edit virtual filesystem paths. Keep chromEvol.js and chromEvol.wasm paired
 when updating them.
 
-RUNNING CHROMEVOL 
------------------
 LINUX
 Open a terminal in the extracted folder and run:
 
@@ -35,20 +30,22 @@ In PowerShell or Command Prompt, open the extracted folder and run:
 .\run-chromevol.cmd
 
 A PowerShell script is also included: .\run-chromevol.ps1
-If your execution policy blocks PowerShell scripts, use run-fitting.cmd.
+If your execution policy blocks PowerShell scripts, use run-chromevol.cmd.
 
-RESULTS
--------
+RESULT
 The scripts use TreesFile.txt, countsFile and params.txt in their own folder
-and create results.zip there. 
-
+and create results.zip there. They fit the defined models and automatically
+run adequacy if Run adequacy test was checked in the website form. They use the
+saved best/selected model choice and simulation count. If the checkbox was off,
+they run fitting only. They fit the defined models; heterogeneous
+parameters trigger the complete Background/shift model search.
+Keep the terminal open and the computer awake while running.
 The scripts return the launcher's exit code (0 for success).
 
 The equivalent direct command, on Windows or Linux, is:
 node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip
 
 OPTIONAL ADEQUACY
------------------
 The default scripts follow the adequacy checkbox, model choice and simulation
 count saved in params.txt. No extra command-line flags are needed.
 Explicit command-line arguments override the saved settings. Extra script arguments
@@ -59,10 +56,10 @@ To override the simulation count, append --adequacy-sims 10 (or 1000).
 The following commands explicitly enable adequacy on the best model:
 
 Linux diagnostic check:
-sh ./run-fitting.sh --adequacy best --adequacy-sims 10
+sh ./run-chromevol.sh --adequacy best --adequacy-sims 10
 
 Windows diagnostic check:
-.\run-fitting.cmd --adequacy best --adequacy-sims 10
+.\run-chromevol.cmd --adequacy best --adequacy-sims 10
 
 Replace 10 with 1000 for the original full simulation count.
 To test one named homogeneous model, replace --adequacy best with:
@@ -74,14 +71,13 @@ no digits in taxon-name portions, and no spaces/parentheses/commas/semicolons in
 heterogeneous partition taxon labels.
 
 VIEWING RESULTS
----------------
-Open homepage (index.html) on the website and upload results.zip. The results page
+Open zip_viewer.html on the website and upload results.zip. The results page
 shows the summary, output links and any adequacy p-values. ZIP input is read
 locally by the browser. You may also extract the output ZIP to inspect its files.
 
 UPDATES
 Code and WASM in this package were fetched from the deployed website when you
-clicked Download Node launcher. Download again to obtain later deployed code.
+clicked Download Node Launcher. Download again to obtain later deployed code.
 The package runs locally without internet once Node.js is installed.
 For all launcher options: node ./run-models.js --help
 
@@ -93,3 +89,14 @@ Linux: tail -f run.log
 PowerShell: Get-Content .\run.log -Wait
 Open a second terminal to monitor the log while the first one runs the job.
 
+USER-DEFINED HETEROGENEOUS SHIFTS
+If UserDefined was selected on the website, params.txt stores the shift-clade
+pairs. The launcher recreates nodes_splits.txt in the virtual filesystem, assigns
+Background to the root, and optimizes the rate parameters with those shift
+locations fixed. The automatic search's maximum-regime/minimum-clade controls
+do not set the manual partitions. Each shift is the most recent common ancestor
+of its two named tips. The selected Background function types are used in each
+regime; their parameter values are optimized independently between regimes.
+The same settings apply to browser fitting, Node fitting and adequacy on the
+complete selected fit. Keep chromevol-user-defined.js and chromevol-validation.js
+with the other launcher modules; both are included in downloaded packages.

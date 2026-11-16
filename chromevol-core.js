@@ -3,9 +3,9 @@
  * Browser: <script src="chromevol-core.js"></script> exposes SincopaCore.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.SincopaCore = factory();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./chromevol-user-defined.js'));
+  else root.SincopaCore = factory(root.ChromevolUserDefined);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (userDefined) {
 'use strict';
 const normalizeText = text => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 function portableParams(text) {
@@ -24,14 +24,17 @@ function prepareRun({tree, counts, params, template, defaultsText}) {
   const options = {
     analysisType: settings.analysisType || 'Homogenous',
     maxRateRegimes: settings.maxRateRegimes || '1',
-    minCladeSize: settings.minCladeSize || '5'
+    minCladeSize: settings.minCladeSize || '5',
+    transitionPoints:settings.transitionPoints || 'Automatic',
+    userDefinedClades:settings.userDefinedClades || '[]'
   };
   let definedModels = JSON.parse(settings.definedModels);
   if (options.analysisType === 'TimeHeterogeneous') definedModels = [{...definedModels[0], name:'Background'}];
-  const nativeFiles = definedModels.map((model,id) => ({
+  let nativeFiles = definedModels.map((model,id) => ({
     id, modelName:model.name, filename:'param_'+model.name+'.txt',
     params:fixPaths(createParams(template,model,counts,defaults,options))
   }));
+  if(options.analysisType==='TimeHeterogeneous'&&options.transitionPoints==='UserDefined')nativeFiles=nativeFiles.map(model=>userDefined.configure(model,tree,options.userDefinedClades));
   return {tree,counts,params,definedModels,nativeFiles,...options};
 }
 function createParams(template, model, countsText, defaults, options = {
@@ -109,7 +112,8 @@ function readDefaults(text) {
 }
 function createWrapperParams(definedModels, defaults, options = {analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'}) {
   const settings = {...defaults,
-    analysisType: options.analysisType, transitionPoints: 'Automatic',
+    analysisType: options.analysisType, transitionPoints: options.transitionPoints || 'Automatic',
+    userDefinedClades:typeof options.userDefinedClades==='string'?options.userDefinedClades:JSON.stringify(options.userDefinedClades||[]),
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
     AdeqTest: 'NO',

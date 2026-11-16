@@ -218,7 +218,7 @@ th {background:#f0f0f0;} .best {background:#edf7ee;}
 <p><a href="index.html">Prepare another input</a> | <a href="zip_viewer.html">Open saved results ZIP</a></p>
 <section aria-labelledby="downloadHeading">
 <h2 id="downloadHeading">Download run</h2>
-<button id="downloadNodeLauncher" type="button">Download Node Launcher</button>
+<span style="display:inline-block;vertical-align:top"><button id="downloadNodeLauncher" type="button">Download Node Launcher</button><small style="display:block;margin-top:5px">Instructions are in README.txt.</small></span>
 <button id="downloadZip" type="button" disabled>Download all results (ZIP)</button>
 <p id="exportStatus" role="status" class="note"></p>
 </section>
@@ -233,8 +233,10 @@ Glick, Lior, and Itay Mayrose. “ChromEvol: assessing the pattern of chromosome
 // Reuse the original site header; the results runner has no jQuery dependency.
 if (window.jQuery) jQuery(function () { jQuery('#header').load('header.html'); });
 </script>
-<script src="chromevol-core.js"></script>
-<script src="chromevol-node-export.js?v=2"></script>
+<script src="chromevol-validation.js?v=match-counts-1"></script>
+<script src="chromevol-user-defined.js?v=1"></script>
+<script src="chromevol-core.js?v=user-defined-1"></script>
+<script src="chromevol-node-export.js?v=user-defined-1"></script>
 <script src="zip-import.js?v=match-counts-1"></script>
 <script src="chromevol-statistics.js"></script>
 <script src="chromevol-adequacy.js"></script>
@@ -587,7 +589,7 @@ function renderResults() {
 }
 
 const resultUrls = [];
-function executeModel(model,job={tree:input.tree,counts:input.counts,params:fixPaths(model.params)}) {
+function executeModel(model,job={tree:input.tree,counts:input.counts,params:fixPaths(model.params),extraFiles:model.extraFiles||[]}) {
   return new Promise((resolve,reject) => {
     rejectCurrent = reject;
     worker = new Worker('chromevol-worker.js?v=buffered-log-1');
