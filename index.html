@@ -161,6 +161,13 @@
 	  	cursor:pointer;
 	}
 
+#submitFormBtn, #launchNodeBtn {
+  box-sizing:border-box;
+  height:38px;
+  margin:0;
+  padding:4px 8px;
+  font:inherit;
+}
 </style>
 
 <meta charset="utf-8">
@@ -578,7 +585,7 @@
             
 			<br>
 			<div class="col-md-12 col-lg-12" style="text-align:left">  
-				<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+				<div id="runActions" style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
 <input class="submitButton" type="submit" size="7" name="Submit" value="Submit" id="submitFormBtn">
 <div><span style="display:inline-flex;flex-direction:column;align-items:flex-start"><button class="submitButton" type="submit" id="launchNodeBtn">Download Node Launcher</button><small>Instructions are in README.txt.</small></span></div>
 </div>
