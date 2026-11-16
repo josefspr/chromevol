@@ -161,19 +161,29 @@ $(function () {
   ClearModels();
   let homogeneousModels = JSON.stringify(data);
   let heterogeneous = false;
+  let backgroundModels = null;
   let maximumRegimes = '2';
   window.changedAnalysisType = function () {
     const next = byId('TimeHeterogeneousModel').checked;
     if (next && !heterogeneous) homogeneousModels = JSON.stringify(data);
-    if (!next && heterogeneous) maximumRegimes = byId('maxRateRegimes').value;
+    if (!next && heterogeneous) {
+      maximumRegimes = byId('maxRateRegimes').value;
+      backgroundModels = JSON.stringify(data);
+    }
     heterogeneous = next;
     byId('transitionPointsDiv').style.display = next ? 'block' : 'none';
     byId('traitModelDiv').style.display = 'none';
     byId('addModelDiv').style.display = next ? 'none' : 'block';
     if (next) {
-      AddHeterogeneusModel();
+      if (backgroundModels) {
+        data = JSON.parse(backgroundModels);
+        num_data_col = data.length;
+        LoadParamTable();
+      } else AddHeterogeneusModel();
       byId('maxRateRegimes').value = maximumRegimes;
-      byId('paramTable').querySelectorAll('input, select, button').forEach(field => field.disabled = true);
+      // Transition checkboxes and active function selectors remain editable.
+      // Keep the single Background column; only its remove button is locked.
+      byId('paramTable').querySelectorAll('button[onclick^="RemoveModel("]').forEach(field => field.disabled = true);
     } else {
       data = JSON.parse(homogeneousModels);
       num_data_col = data.length;
