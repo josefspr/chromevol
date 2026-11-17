@@ -11,6 +11,7 @@ async function build(input){
   const sources=[
     ['run-models.js','run-models.js'],
     ['chromevol-core.js','chromevol-core.js'],
+    ['chromevol-trait.js','chromevol-trait.js'],
     ['chromevol-user-defined.js','chromevol-user-defined.js'],
     ['chromevol-validation.js','chromevol-validation.js'],
     ['chromevol-adequacy.js','chromevol-adequacy.js'],
@@ -26,6 +27,7 @@ async function build(input){
       if(!response.ok)throw new Error('Could not load '+source+' (HTTP '+response.status+').');
       return {name,content:new Uint8Array(await response.arrayBuffer())};
     }));
+    const traitArg=input.trait?' --trait ./traitFile':'';
     entries.push(
       {name:'TreesFile.txt',content:input.tree},
       {name:'countsFile',content:input.counts},
@@ -33,21 +35,22 @@ async function build(input){
       {name:'run-chromevol.sh',content:[
         '#!/bin/sh',
         'cd -- "$(dirname -- "$0")" || exit 1',
-        'exec node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip "$@" > ./run.log 2>&1',
+        'exec node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --params ./params.txt --output ./results.zip'+traitArg+' "$@" > ./run.log 2>&1',
         ''
       ].join('\n')},
       {name:'run-chromevol.cmd',content:[
         '@echo off','setlocal','cd /d "%~dp0"',
-        'node ".\\run-models.js" --tree ".\\TreesFile.txt" --counts ".\\countsFile" --params ".\\params.txt" --output ".\\results.zip" %* > ".\\run.log" 2>&1',
+        'node ".\\run-models.js" --tree ".\\TreesFile.txt" --counts ".\\countsFile" --params ".\\params.txt" --output ".\\results.zip"'+(input.trait?' --trait ".\\traitFile"':'')+' %* > ".\\run.log" 2>&1',
         'exit /b %errorlevel%',''
       ].join('\r\n')},
       {name:'run-chromevol.ps1',content:[
         '# Run from any working directory. Extra arguments are passed to the launcher.',
-        '& node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip") @args > (Join-Path $PSScriptRoot "run.log") 2>&1',
+        '& node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip")'+(input.trait?' --trait (Join-Path $PSScriptRoot "traitFile")':'')+' @args > (Join-Path $PSScriptRoot "run.log") 2>&1',
         'exit $LASTEXITCODE',''
       ].join('\r\n')}
     );
 
+  if(input.trait)entries.push({name:'traitFile',content:input.trait});
   if(input.originalTree!==undefined)entries.push({name:'TreesFile_original.txt',content:input.originalTree});
   if(input.originalCounts!==undefined)entries.push({name:'countsFile_original',content:input.originalCounts});
   if(input.taxaMatchingSummary)entries.push({name:'taxa_matching_report.txt',content:input.taxaMatchingSummary});

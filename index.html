@@ -470,20 +470,20 @@
 				<input type="radio" name="analysisType" id="DiscreteTraitModel" value="DiscreteTraitModel" class="form-radio" onchange="changedAnalysisType()"><label for="radio-two" >
 				&nbsp&nbsp Discrete Trait Model</label>
 				<div id="traitModelDiv" class="col-md-6 col-lg-6" style="display:none;">
-					<br>
+					<p>Fits independent and joint trait/chromosome models and tests their association. The editable chromosome model is fitted separately for each trait state in the joint model.</p>
 					<font face="serif" size="4" color="#4271bc">Load your trait states file:</font>
 					<a id="popover9" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Upload trait states in FASTA format. For example:<br>>TAXON_NAME1<br>1<br>>TAXON_NAME2<br>0">?</a>
 					<span class="glyphicon glyphicon-info-sign infoIcon"></span></a><br>
 					<input type="file" id="TraitFile" name="TraitFile" >
-					<textarea id="TraitFile_txt" name="TraitFile_txt" rows=8 cols=50></textarea>
+					<p>Use FASTA records with one integer state (0 to number of states minus 1) per tree tip. Every state must occur in the matched tree. Extra taxa are omitted.</p><textarea id="TraitFile_txt" name="TraitFile_txt" rows=8 cols=50></textarea>
 					<br>
-					Number of Trait States &nbsp<input type="text" id="numTraitStates" name="numTraitStates" size="1">
+					Number of Trait States &nbsp<input type="text" id="numTraitStates" name="numTraitStates" size="1" value="2">
 					<a id="popover10" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Number of states in the trait model">?</a>
 					<br><br>
-					Pi parameters &nbsp<input type="text" id="piParams" name="piParams" size="20">
+					Pi parameters &nbsp<input type="text" id="piParams" name="piParams" size="20" value="0.5,0.5">
 					<a id="popover11" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Root frequencies per Trait states. Should sum up to 1. Separated by commas">?</a>
 					<br><br>
-					Trait model &nbsp<select onchange="changedTraitModel()" id="traitModel" name="traitModel">"traitModel"
+					Trait model &nbsp<select onchange="changedTraitModel()" id="traitModel" name="traitModel">
 						<option value="singleRate">singleRate</option>
 						<option value="ratePerEntry">ratePerEntry</option>
 						<option value="ratePerExit">ratePerExit</option>
@@ -491,16 +491,16 @@
 						<option value="pairRateModel">pairRateModel</option>
 					</select>
 					<a id="popover12" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="The type of the character model: singleRate, ratePerEntry, ratePerExit, symPairRate, pairRateModel">?</a>
-					<div style="display:block;font-size:14px" id="global_rate_div"> Global rate &nbsp<input type="text" id="global_rate" name="global_rate" size="1"><a id="popover13" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Global rate value">?</a></div>
+					<div style="display:block;font-size:14px" id="global_rate_div"> Global rate &nbsp<input type="text" id="global_rate" name="global_rate" size="1" value="1"><a id="popover13" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Global rate value">?</a></div>
 					<div style="display:none;font-size:14px" id="entry_rates_div"> List of entry Rates &nbsp<input type="text" id="entry_rates" name="entry_rates" size="20"><a id="popover14" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="List of #trait-states transition parameters separated by commas">?</a></div>
 					<div style="display:none;font-size:14px"id="exit_rates_div"> List of exit Rates &nbsp<input type="text" id="exit_rates" name="exit_rates" size="20"><a id="popover15" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="List of #trait-states transition parameters separated by commas">?</a></div>
 					<div style="display:none;font-size:14px"id="sym_pair_rates_div"> Upload rates per pair &nbsp<input type="text" id="symPair_rates" name="symPair_rates" size="50"><a id="popover16" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="List of symmetric transitions rates _rate_i_j, where j&lti separated by commas. e.g. for #states=3:_rate_0_1=v1,_rate_0_2=v2,_rate_1_2=v3">?</a></div>
 					<div style="display:none;font-size:14px"id="pair_rate_model_div"> Upload Rates per pair &nbsp<input type="text" id="pairRate_rates" name="pairRate_rates" size="50"><a id="popover17" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="No constraints on the transition rates, _rate_i_j, where j!=i separated by commas. e.g. for #states=3:_rate_0_1=v1,_rate_0_2=v2,_rate_1_2=v3,_rate_1_0=v4,_rate_2_0=v5,_rate_2_1=v6">?</a></div>
 					<br>
 					Trait Root frequencies should be set according to: <br>
-					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="rootFrequencies" value="stationaryTraitRootFreqs" class="form-radio" checked="checked"><label for="radio-two" >&nbsp Default (stationary)</label><br>
-					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="rootFrequencies" value="weightedTraitRootFreqs" class="form-radio"><label for="radio-two" >&nbsp Likelihood values</label><br>
-					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="rootFrequencies" value="fixedRootTraitState" class="form-radio"><label for="radio-two" >&nbsp Fixed root value &nbsp</label><input type="text" id="fixedRootValue" name="fixedRootValue" size="1">
+					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="stationaryTraitRootFreqs" value="stationaryTraitRootFreqs" class="form-radio" checked="checked"><label for="radio-two" >&nbsp Default (stationary)</label><br>
+					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="weightedTraitRootFreqs" value="weightedTraitRootFreqs" class="form-radio"><label for="radio-two" >&nbsp Likelihood values</label><br>
+					&nbsp&nbsp<input type="radio" name="rootFrequencies" id="fixedRootTraitState" value="fixedRootTraitState" class="form-radio"><label for="radio-two" >&nbsp Fixed root value &nbsp</label><input type="text" id="fixedRootValue" name="fixedRootValue" size="1">
 				</div>
 			
 			</div><br>
@@ -528,7 +528,8 @@
 			<div class="col-md-12 col-lg-12">
 				<div class="col-md-6 col-lg-6">
                 <input type="hidden" name="AdeqTest" value='NO' />
-		<input type="checkbox" id="runAdequacy" class="checkmark" onclick='onClickAdequacyText(this)'> <!-- checked="checked"  -->
+		<p id="traitAdequacyNote" hidden>Model adequacy is currently available for homogeneous and time heterogeneous analyses only.</p>
+<input type="checkbox" id="runAdequacy" class="checkmark" onclick='onClickAdequacyText(this)'> <!-- checked="checked"  -->
                 <font face="serif" size="5" color="#4271bc">&nbsp&nbsp Run adequacy test:</font>
 		<a id="popover3" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" class="tooltip-link" data-bs-title="Select on which models to run model adequacy test:<br>(1) The best selected model (2) One of the models specified by the user (3) All selected models<br>NOTE: running model adequacy on models that include the base-number parameter  performs another round of model optimization and will increase running time"><span class="glyphicon glyphicon-info-sign infoIcon"><span class="glyphicon glyphicon-info-sign infoIcon">?</a>
 				<div style="display:block;" id="AdeqTest_DIV">
@@ -1111,10 +1112,11 @@
 <script src="chromevol-validation.js?v=match-counts-1"></script>
 <script src="chromevol-match-counts.js?v=1"></script>
 <script src="chromevol-user-defined.js?v=1"></script>
-<script src="chromevol-core.js?v=user-defined-1"></script>
-<script src="zip-import.js?v=match-counts-1"></script>
-<script src="chromevol-node-export.js?v=user-defined-1"></script>
-<script src="prepare.js?v=user-defined-1"></script>
+<script src="chromevol-trait.js?v=discrete-trait-1"></script>
+<script src="chromevol-core.js?v=discrete-trait-1"></script>
+<script src="zip-import.js?v=discrete-trait-1"></script>
+<script src="chromevol-node-export.js?v=discrete-trait-1"></script>
+<script src="prepare.js?v=discrete-trait-1"></script>
 </body>
 
 </html>

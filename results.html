@@ -235,9 +235,10 @@ if (window.jQuery) jQuery(function () { jQuery('#header').load('header.html'); }
 </script>
 <script src="chromevol-validation.js?v=match-counts-1"></script>
 <script src="chromevol-user-defined.js?v=1"></script>
-<script src="chromevol-core.js?v=user-defined-1"></script>
-<script src="chromevol-node-export.js?v=user-defined-1"></script>
-<script src="zip-import.js?v=match-counts-1"></script>
+<script src="chromevol-trait.js?v=discrete-trait-1"></script>
+<script src="chromevol-core.js?v=discrete-trait-1"></script>
+<script src="chromevol-node-export.js?v=discrete-trait-1"></script>
+<script src="zip-import.js?v=discrete-trait-1"></script>
 <script src="chromevol-statistics.js"></script>
 <script src="chromevol-adequacy.js"></script>
 <script src="chromevol-adequacy-browser.js"></script>
@@ -250,7 +251,7 @@ try { input = imported?.input || JSON.parse(sessionStorage.getItem('sincopaInput
 catch (error) { console.error('Could not read run inputs:', error); }
 document.getElementById('jobTitle').textContent = input?.jobTitle || 'chromEvol results';
 document.getElementById('analysisLabel').textContent = input?.analysisType === 'TimeHeterogeneous'
-  ? 'Time heterogeneous analysis' : input ? 'Homogeneous analysis' : '';
+  ? 'Time heterogeneous analysis' : input?.analysisType==='DiscreteTraitModel' ? 'Discrete trait analysis' : input ? 'Homogeneous analysis' : '';
 const nativeFiles = input?.nativeFiles || [];
 const matchingReport=document.getElementById('taxaMatchingReport');
 if(input?.taxaMatching){
@@ -311,128 +312,11 @@ const urls = [];
 const xmlKeys = [];
 let worker, cancelled = false, busy = false;
 let rejectCurrent;
-function fixPaths(text) {
-  text = text.replace(/\r\n?/g, "\n");
-  const paths = {
-    _treeFile: '/input/TreesFile.txt',
-    _dataFile: '/input/countsFile',
-    _resultsPathDir: '/results'
-  };
-  for (const [key, value] of Object.entries(paths)) {
-    const pattern = new RegExp('^[ \t]*' + key + '[ \t]*=[^\\n]*$', 'gm');
-    if (pattern.test(text)) text = text.replace(pattern, key + ' = ' + value);
-    else text += '\n' + key + ' = ' + value + '\n';
-  }
-  return text;
-}
-// Parse only the chosen final model, excluding earlier forward-phase models.
+function fixPaths(text) { return SincopaCore.fixPaths(text); }
 function summarizeResults(text) { return SincopaCore.summarizeResults(text); }
 function fitName(record) { return SincopaCore.fitName(record); }
 
-function convert_to_PhyD3(newick, countsText) {
-  const counts = new Map();
-  let taxon;
-  for (const raw of countsText.split(/\r\n?|\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (line.startsWith('>')) taxon = line.slice(1).trim();
-    else if (taxon !== undefined) counts.set(taxon, line);
-  }
-  const text = newick.trim();
-  let position = 0;
-  function whitespace() { while (/\s/.test(text[position] || '') && position < text.length) position++; }
-  function label() {
-    whitespace();
-    if (text[position] === "'") {
-      position++;
-      let value = '';
-      while (position < text.length) {
-        const character = text[position++];
-        if (character === "'") {
-          if (text[position] === "'") { value += "'"; position++; }
-          else return value;
-        } else value += character;
-      }
-      throw new Error('Unclosed quoted Newick label.');
-    }
-    const start = position;
-    while (position < text.length && !/[\s(),:;\[\]]/.test(text[position])) position++;
-    return text.slice(start, position);
-  }
-  function comment() {
-    position++;
-    let depth = 1, value = '';
-    while (position < text.length && depth) {
-      const character = text[position++];
-      if (character === '[') depth++;
-      if (character === ']') depth--;
-      if (depth) value += character;
-    }
-    if (depth) throw new Error('Unclosed Newick comment.');
-    return value.trim();
-  }
-  function subtree() {
-    whitespace();
-    const node = {name: '', children: []};
-    if (text[position] === '(') {
-      position++;
-      node.children.push(subtree());
-      whitespace();
-      while (text[position] === ',') { position++; node.children.push(subtree()); whitespace(); }
-      if (text[position++] !== ')') throw new Error('Missing Newick closing parenthesis.');
-    }
-    node.name = label();
-    while (position < text.length) {
-      whitespace();
-      if (text[position] === '[') {
-        const annotation = comment();
-        // chromEvol can put ancestral node names in bracket comments.
-        if (!node.name && /^N\d+(?:-\d+)?$/.test(annotation)) node.name = annotation;
-      } else if (text[position] === ':') {
-        position++;
-        whitespace();
-        const match = text.slice(position).match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);
-        if (!match) throw new Error('Invalid Newick branch length.');
-        node.length = match[0];
-        position += match[0].length;
-      } else break;
-    }
-    return node;
-  }
-  const root = subtree();
-  whitespace();
-  if (text[position] === ';') position++;
-  whitespace();
-  if (position !== text.length) throw new Error('Unexpected content after the Newick tree.');
-  function xml(value) {
-    return String(value).replace(/[&<>"']/g, character => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
-    })[character]);
-  }
-  function clade(node, depth) {
-    const indent = '  '.repeat(depth);
-    const lines = [indent + '<clade>'];
-    if (node.name) {
-      // Remove only chromEvol's numeric count suffix, preserving taxon hyphens.
-      const name = counts.has(node.name) ? node.name : node.name.replace(/-\d+$/, '');
-      lines.push(indent + '  <name>' + xml(name) + '</name>');
-      lines.push(indent + '  <chrom>' + xml(counts.get(name) ?? ' - ') + '</chrom>');
-    }
-    if (node.length !== undefined) lines.push(indent + '  <branch_length>' + node.length + '</branch_length>');
-    for (const child of node.children) lines.push(clade(child, depth + 1));
-    lines.push(indent + '</clade>');
-    return lines.join('\n');
-  }
-  // labels/chrom are the PhyD3 extensions used by the original Python function.
-  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<phyloxml xmlns="http://www.phyloxml.org">\n' +
-    '  <phylogeny rooted="false">\n' +
-    '    <labels>\n' +
-    '      <label type="text"><name show="1">Chromosome Count</name><data tag="chrom"/></label>\n' +
-    '      <label type="color"><name>Color label</name><data tag="colortag"/></label>\n' +
-    '    </labels>\n' + clade(root, 2) + '\n' +
-    '  </phylogeny>\n</phyloxml>\n';
-}
+function convert_to_PhyD3(newick,counts) { return SincopaCore.convert_to_PhyD3(newick,counts,input?.analysisType==='DiscreteTraitModel'); }
 function formatDefinedModels(models) {
   const rates = [
     ['_lossConstR', 'Descending dysploidy rate'],
@@ -483,6 +367,7 @@ function orderedResults() {
 const outputLabels = {
   'chromEvol.res': 'Results summary',
   'ancestorsProbs.txt': 'Ancestors distribution Table',
+  'ancestorsProbsTrait.txt':'Trait ancestors distribution Table',
   'expectations_second_round.txt': 'Inferred Transitions'
 };
 function renderResults() {
@@ -491,12 +376,13 @@ function renderResults() {
   const best = sorted.find(record=>record.aicc!==null)?.aicc;
   const table = document.getElementById('summaryTable'); table.replaceChildren();
   if (!sorted.length) return;
+  const hasTrait=sorted.some(record=>record.parsed?.isTrait);
   const hasHeterogeneous=sorted.some(record=>record.parsed?.isHeterogeneous);
   const multipleRegimes = sorted.some(record=>(record.parsed?.regimes.length||1)>1);
   const thead=document.createElement('thead'),header=document.createElement('tr');
   const parameter=document.createElement('th');parameter.textContent='Parameter';parameter.scope='col';
   header.append(parameter);
-  if(hasHeterogeneous){
+  if(hasHeterogeneous||hasTrait){
     for(const record of sorted)for(const regime of record.parsed?.regimes||[{name:'Unavailable'}]){
       const th=document.createElement('th');th.scope='col';th.textContent=regime.name;header.append(th);
     }
@@ -513,7 +399,7 @@ function renderResults() {
   const labels=['Base (monoploid) number addition','Duplication','Ascending dysploidy',
     'Duplication by 1.5','Descending dysploidy','Base (monoploid) number'];
   const tbody=document.createElement('tbody');
-  if(multipleRegimes){
+  if(multipleRegimes&&!hasTrait){
     const row=document.createElement('tr'),th=document.createElement('th');th.textContent='Regime root node';th.scope='row';row.append(th);
     for(const record of sorted)for(const regime of record.parsed?.regimes||[{root:'-'}]){
       const td=document.createElement('td');td.textContent=regime.root;row.append(td);
@@ -527,6 +413,7 @@ function renderResults() {
     }
     tbody.append(row);
   });
+  if(!hasTrait){
   const delta=document.createElement('tr'),deltaLabel=document.createElement('th');
   deltaLabel.scope='row';deltaLabel.textContent='ΔAIC from best model';delta.append(deltaLabel);
   for(const record of sorted) {
@@ -538,18 +425,26 @@ function renderResults() {
     }
   }
   tbody.append(delta);
+  }
   table.append(tbody);
   const selectedRecord=sorted.find(record=>record.aicc!==null);
   document.getElementById('comparisonNote').textContent=busy?
     'Comparison of completed runs; the best model may change while remaining models run.':
     (selectedRecord ? 'Best model is: ' + fitName(selectedRecord) + '.' : 'Best model is: unavailable.') +
     (hasHeterogeneous ? ' Rates show regimes of the selected fit. The ΔAIC row compares complete models with 0, 1, … shifts from left to right; it does not score individual regimes.' : ' Unreported parameters are shown as −.');
+  if(hasTrait){
+    const t=sorted.find(r=>r.parsed?.isTrait)?.parsed.trait;
+    const fmt=v=>v===null?'unavailable':String(v);
+    document.getElementById('comparisonNote').textContent='Joint trait/chromosome fit. Negative log likelihood: independent '+fmt(t.nullNLL)+', joint '+fmt(t.jointNLL)+'. LRT: χ² = '+fmt(t.chiSquare)+', df = '+fmt(t.degreesOfFreedom)+', critical threshold = '+fmt(t.criticalThreshold)+'. '+(t.conclusion||'See Results summary for the test decision.');
+    const row=document.createElement('tr'),th=document.createElement('th');th.textContent='Trait model parameters';row.append(th);
+    for(const record of sorted)for(const regime of record.parsed?.regimes||[{}]){const td=document.createElement('td');td.textContent=(record.parsed?.trait?.parameters||[]).map(p=>p.name+' = '+p.value).join('; ');row.append(td);}tbody.append(row);
+  }
   const outputs=document.getElementById('modelOutputs');outputs.replaceChildren();
   for(const url of resultUrls)URL.revokeObjectURL(url);resultUrls.length=0;
   for(const record of sorted){
     const regimes = record.parsed?.regimes || [{name:record.modelName,root:'-'}];
-    const hasShifts = (record.parsed?.regimes.length || 1) > 1;
-    for (const regime of regimes) {
+    const hasShifts = !record.parsed?.isTrait && (record.parsed?.regimes.length || 1) > 1;
+    for (const regime of (record.parsed?.isTrait?regimes.slice(0,1):regimes)) {
     const section=document.createElement('details'),title=document.createElement('summary');
     section.className = 'modelResult';
     title.textContent = hasShifts ? (regime.index === 1 ? record.modelName + ' — Background' : regime.name) : record.modelName;
@@ -564,7 +459,7 @@ function renderResults() {
       const message=document.createElement('p');message.textContent=record.error?'Run failed: '+record.error:'Summary unavailable: '+record.summaryError;section.append(message);
     }
     const list=document.createElement('ul');
-    for(const filename of ['chromEvol.res','MLAncestralReconstruction_phylo.xml','ancestorsProbs.txt','expectations_second_round.txt']){
+    for(const filename of ['chromEvol.res','MLAncestralReconstruction_phylo.xml','ancestorsProbs.txt','expectations_second_round.txt',...(record.parsed?.isTrait?['ancestorsProbsTrait.txt']:[])]){
       if(filename.endsWith('.xml')){
         const row=document.createElement('li');
         if(record.xmlKey){
@@ -693,6 +588,7 @@ if (!nativeFiles.length) {
   const definedModelsText = formatDefinedModels(definedModels);
   for (const [index, [label, name, content]] of [
     ['Count File', 'countsFile', input.counts],
+    ...(input.trait?[['Trait File','traitFile',input.trait]]:[]),
     ['Tree File', 'TreesFile.txt', input.tree],
     ['Defined Models', 'defined_models.txt', definedModelsText]
   ].entries()) {
@@ -781,6 +677,7 @@ function exportEntries() {
     {name:'run.log',content:fullLog()}
   ];
   const safe=name=>String(name).replace(/[^a-zA-Z0-9._=-]/g,'_').replace(/^\.+$/,'model')||'model';
+  if(input.trait)entries.push({name:'input/traitFile',content:input.trait});
   for(const model of nativeFiles) entries.push({name:'parameters/'+(Number(model.id)+1)+'_'+safe(model.filename),content:fixPaths(model.params)});
   for(const record of orderedResults()) {
     const folder='models/'+(Number(record.id)+1)+'_'+safe(record.modelName)+'/';

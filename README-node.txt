@@ -100,3 +100,26 @@ regime; their parameter values are optimized independently between regimes.
 The same settings apply to browser fitting, Node fitting and adequacy on the
 complete selected fit. Keep chromevol-user-defined.js and chromevol-validation.js
 with the other launcher modules; both are included in downloaded packages.
+
+DISCRETE TRAIT MODEL
+
+Choose Discrete Trait Model on the website to include traitFile in this package.
+The generated run-chromevol.sh / .cmd / .ps1 commands automatically add --trait.
+For a direct command use:
+
+node ./run-models.js --tree ./TreesFile.txt --counts ./countsFile --trait ./traitFile --params ./params.txt --output ./results.zip
+
+The params.txt wrapper contains analysisType:DiscreteTraitModel, numTraitStates,
+piParams, traitModel and its rates, rootFrequencies, and one chromosome model in
+definedModels. File paths are supplied by the command line, not embedded in params.
+Trait records are FASTA with integer states 0..N-1. Every matched tree tip needs
+a trait state, and every specified state must be observed. Extra taxa are dropped.
+The native trait file path is always /input/traitFile inside the virtual filesystem.
+
+Supported trait rate models: singleRate, ratePerEntry, ratePerExit, symPairRate,
+pairRateModel. Root choices: stationary, likelihood-weighted, or fixed state.
+The engine fits independent (null) and joint (alternative) models. Results show
+chromosome parameters for each trait state, trait parameters, negative log
+likelihoods and the engine's likelihood-ratio test decision. No AIC is invented
+for this analysis. Model adequacy is not currently implemented for joint traits.
+The results ZIP includes the trait input and trait ancestral probabilities.

@@ -56,6 +56,7 @@ function restore(files) {
   nativeFiles.sort((a,b)=>a.id-b.id);
   const input={params,tree:text('input/TreesFile.txt'),counts:text('input/countsFile'),definedModels,nativeFiles,
     analysisType:settings.analysisType||'Homogenous',maxRateRegimes:settings.maxRateRegimes||'1',minCladeSize:settings.minCladeSize||'5'};
+  if(files.has('input/traitFile'))input.trait=text('input/traitFile');
   if(files.has('input/TreesFile_original.txt'))input.originalTree=text('input/TreesFile_original.txt');
   if(files.has('input/countsFile_original'))input.originalCounts=text('input/countsFile_original');
   if(files.has('input/taxa_matching_report.txt'))input.taxaMatchingSummary=text('input/taxa_matching_report.txt');

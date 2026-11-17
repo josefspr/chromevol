@@ -96,7 +96,7 @@ function resolveAdequacyOptions(opts, settings) {
 async function main() {
   const args=process.argv.slice(2),opts={};
   if(!args.length||args.includes('--help')) {
-    console.log(`Usage: node run-models.js --tree TREE --counts COUNTS --params PARAMS [--output RESULTS.zip]
+    console.log(`Usage: node run-models.js --tree TREE --counts COUNTS --params PARAMS [--output RESULTS.zip] [--trait TRAIT_FILE]
 
 Required: original params.txt with definedModels JSON (not a native param_Model.txt).
 Optional paths (default: beside this script):
@@ -114,7 +114,7 @@ MA_userModelSelect and adequacySimulations in params.txt.
 The ZIP matches the browser export. No npm installation is required.`);
     return;
   }
-  const allowed=new Set(['tree','counts','params','output','loader','wasm','template','defaults','adequacy','adequacy-model','adequacy-sims']);
+  const allowed=new Set(['tree','counts','params','output','loader','wasm','template','defaults','adequacy','adequacy-model','adequacy-sims','trait']);
   for(let i=0;i<args.length;i+=2) {
     const key=args[i].replace(/^--/,'');
     if(!args[i].startsWith('--')||!allowed.has(key)||!args[i+1]||args[i+1].startsWith('--'))throw new Error('Invalid option: '+args[i]+' (use --help)');
@@ -127,13 +127,15 @@ The ZIP matches the browser export. No npm installation is required.`);
   fs.accessSync(loader,fs.constants.R_OK);fs.accessSync(wasm,fs.constants.R_OK);
   const read=file=>fs.readFileSync(file,'utf8');
   const original=read(opts.params),settings=core.readParameters(original);
-  if(!['Homogenous','TimeHeterogeneous',undefined].includes(settings.analysisType))throw new Error('Only homogeneous and time heterogeneous analyses are supported.');
+  if(!['Homogenous','TimeHeterogeneous','DiscreteTraitModel',undefined].includes(settings.analysisType))throw new Error('Unknown analysisType.');
   const definitions=JSON.parse(settings.definedModels||'[]');
   if(!Array.isArray(definitions)||!definitions.length)throw new Error('params.txt must contain at least one model in definedModels.');
-  const input=core.prepareRun({tree:read(opts.tree),counts:read(opts.counts),params:original,
+  if(settings.analysisType==='DiscreteTraitModel'&&!opts.trait)throw new Error('Discrete Trait Model requires --trait TRAIT_FILE.');
+  const input=core.prepareRun({tree:read(opts.tree),counts:read(opts.counts),trait:opts.trait?read(opts.trait):undefined,params:original,
     template:read(opts.template||local('param_NEW_MODELS_anat.txt')),
     defaultsText:read(opts.defaults||local('DEFAULT_PARAM_VALUES.txt'))});
   const {mode,selectedName,simulations}=resolveAdequacyOptions(opts,settings);
+  if(mode&&settings.analysisType==='DiscreteTraitModel')throw new Error('Model adequacy is not implemented for discrete trait analyses. Use --adequacy none.');
   const results=[],logs=[],adequacyEntries=[];let adequacyFailed=false;
   if(mode){
     const heading='Model adequacy enabled: '+mode+(mode==='selected'?' ('+selectedName+')':'')+'; '+simulations+' simulations.';

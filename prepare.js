@@ -3,7 +3,7 @@
 'use strict';
 function portableParams(text) {
   const inputFields = new Set(['_treesFile','_treeFile','_dataFile','TreesDirArr',
-    'TreeFile','CountsFile','TreeFile_txt','CountsFile_txt']);
+    'TreeFile','CountsFile','TreeFile_txt','CountsFile_txt','TraitFile','TraitFile_txt','_traitFilePath']);
   return normalizeText(text).split('\n').filter(line => {
     const separator = line.indexOf(':');
     return separator < 0 || !inputFields.has(line.slice(0, separator).trim());
@@ -93,6 +93,7 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     MA_AdequacyTest: options.adequacy?.mode === 'selected' ? 'MA_AdequacyTest_user' : 'ChromBestModel',
     MA_userModelSelect: options.adequacy?.selectedName || '',
     adequacySimulations: String(options.adequacy?.simulations || 1000),
+    ...options.traitSettings,
     definedModels: JSON.stringify(definedModels),
     _outDir: '/input/chromevol_out', _name: 'browser_run', _cpusNum: '1'
   };
@@ -115,7 +116,7 @@ $(function () {
   form.addEventListener('invalid',event=>{event.preventDefault();setStatus(event.target.validationMessage,true);event.target.focus();},true);
   const pendingReads = new Map();
   // Replace the original preview handlers so Submit waits for file reading.
-  for (const id of ['TreeFile', 'CountsFile']) {
+  for (const id of ['TreeFile', 'CountsFile', 'TraitFile']) {
     const field = byId(id);
     $(field).off('change');
     field.addEventListener('change', () => {
@@ -129,7 +130,7 @@ $(function () {
     });
   }
   // These server features are outside the current browser analysis pipeline.
-  form.querySelectorAll('#DiscreteTraitModel, [name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
+  form.querySelectorAll('[name="ploidy_ON"], [name="inputEmail"]').forEach(field => {
     field.disabled = true;
     field.required = false;
     field.title = 'Not available in the browser version yet';
@@ -137,6 +138,10 @@ $(function () {
     if (field.nextElementSibling?.tagName === 'LABEL') field.nextElementSibling.style.opacity = '0.45';
   });
   function syncAdequacy() {
+    const isTrait=byId('DiscreteTraitModel').checked;
+    byId('runAdequacy').disabled=isTrait;
+    byId('traitAdequacyNote').hidden=!isTrait;
+    if(isTrait)byId('runAdequacy').checked=false;
     const enabled=byId('runAdequacy').checked;
     const hetero=byId('TimeHeterogeneousModel').checked;
     byId('AdeqTest_DIV').style.display=enabled?'block':'none';
@@ -161,7 +166,7 @@ $(function () {
   ClearModels();
   let homogeneousModels = JSON.stringify(data);
   let heterogeneous = false;
-  let backgroundModels = null;
+  let backgroundModels = null,traitModels=null,previousAnalysis='Homogenous';
   let maximumRegimes = '2';
   function syncTransitionPoints(){
     const active=byId('TimeHeterogeneousModel').checked;
@@ -175,31 +180,23 @@ $(function () {
   byId('Automatic').addEventListener('change',syncTransitionPoints);
   byId('UserDefined').addEventListener('change',syncTransitionPoints);
   window.changedAnalysisType = function () {
-    const next = byId('TimeHeterogeneousModel').checked;
-    if (next && !heterogeneous) homogeneousModels = JSON.stringify(data);
-    if (!next && heterogeneous) {
-      maximumRegimes = byId('maxRateRegimes').value;
-      backgroundModels = JSON.stringify(data);
-    }
-    heterogeneous = next;
-    byId('transitionPointsDiv').style.display = next ? 'block' : 'none';
-    byId('traitModelDiv').style.display = 'none';
-    byId('addModelDiv').style.display = next ? 'none' : 'block';
-    if (next) {
-      if (backgroundModels) {
-        data = JSON.parse(backgroundModels);
-        num_data_col = data.length;
-        LoadParamTable();
-      } else AddHeterogeneusModel();
-      byId('maxRateRegimes').value = maximumRegimes;
-      // Transition checkboxes and active function selectors remain editable.
-      // Keep the single Background column; only its remove button is locked.
-      byId('paramTable').querySelectorAll('button[onclick^="RemoveModel("]').forEach(field => field.disabled = true);
-    } else {
-      data = JSON.parse(homogeneousModels);
-      num_data_col = data.length;
-      LoadParamTable();
-    }
+    const next=byId('TimeHeterogeneousModel').checked;
+    const trait=byId('DiscreteTraitModel').checked;
+    const analysis=trait?'DiscreteTraitModel':next?'TimeHeterogeneous':'Homogenous';
+    if(previousAnalysis==='TimeHeterogeneous'){backgroundModels=JSON.stringify(data);maximumRegimes=byId('maxRateRegimes').value;}
+    else if(previousAnalysis==='DiscreteTraitModel')traitModels=JSON.stringify(data);
+    else homogeneousModels=JSON.stringify(data);
+    heterogeneous=next;
+    byId('transitionPointsDiv').style.display=next?'block':'none';
+    byId('traitModelDiv').style.display=trait?'block':'none';
+    byId('addModelDiv').style.display=(next||trait)?'none':'block';
+    const saved=next?backgroundModels:trait?traitModels:homogeneousModels;
+    if(saved){data=JSON.parse(saved);num_data_col=data.length;LoadParamTable();}
+    else if(next)AddHeterogeneusModel();
+    else if(trait)AddTraitModel();
+    if(next)byId('maxRateRegimes').value=maximumRegimes;
+    if(next||trait)byId('paramTable').querySelectorAll('button[onclick^="RemoveModel("]').forEach(field=>field.disabled=true);
+    previousAnalysis=analysis;
     syncAdequacy();syncTransitionPoints();
   };
   window.changedAnalysisType();
@@ -218,7 +215,7 @@ $(function () {
     try {
       if(!form.elements.jobTitle.value.trim())throw new Error('Please enter a Job Name.');
       // Check original upload names before consuming file contents. Pasted text has no filename.
-      for(const id of ['TreeFile','CountsFile']){
+      for(const id of ['TreeFile','CountsFile',...(byId('DiscreteTraitModel').checked?['TraitFile']:[])]){
         const file=byId(id).files?.[0];
         if(file)ChromevolValidation.validate_filename(file.name);
       }
@@ -229,7 +226,7 @@ $(function () {
       const matching=ChromevolMatchCounts.matchCounts(originalTree,originalCounts,form.elements.PruneCounts.value);
       const tree=matching.tree,counts=matching.counts;
       const options = {
-        analysisType: byId('TimeHeterogeneousModel').checked ? 'TimeHeterogeneous' : 'Homogenous',
+        analysisType: byId('DiscreteTraitModel').checked ? 'DiscreteTraitModel' : byId('TimeHeterogeneousModel').checked ? 'TimeHeterogeneous' : 'Homogenous',
         maxRateRegimes: byId('TimeHeterogeneousModel').checked ? byId('maxRateRegimes').value : '1',
         minCladeSize: byId('minCladeSize').value,
         matchCounts:matching.report.mode,
@@ -241,6 +238,11 @@ $(function () {
           selectedName:byId('MA_userModelSelect').value,
           simulations:Number(byId('adequacySimulations').value)}
       };
+      let trait;
+      if(options.analysisType==='DiscreteTraitModel'){
+        options.traitSettings=Object.fromEntries(ChromevolTrait.fields.map(key=>[key,key==='rootFrequencies'?form.elements.rootFrequencies.value:byId(key).value]));
+        trait=ChromevolTrait.validate(tree,byId('TraitFile_txt').value,options.traitSettings);
+      }
       if(options.adequacy.enabled){
         if(counts.split(/\r?\n/).some(line=>line.trim()&&!line.startsWith('>')&&!/^\d+$/.test(line.trim())))throw new Error('Model adequacy currently requires integer counts without X or distributions. Uncheck Run adequacy test to fit these data.');
         if(!Number.isInteger(options.adequacy.simulations)||options.adequacy.simulations<1)throw new Error('Choose a positive whole number of adequacy simulations.');
@@ -262,9 +264,10 @@ $(function () {
         nativeFiles=nativeFiles.map(model=>ChromevolUserDefined.configure(model,tree,options.userDefinedClades));
         options.maxRateRegimes=String(options.userDefinedClades.length+1);
       }
+      if(trait)nativeFiles=nativeFiles.map(model=>ChromevolTrait.configure(model,trait));
       const startId = crypto.randomUUID();
       const input={
-        startId, tree, counts, originalTree, originalCounts, taxaMatching:matching.report, taxaMatchingSummary:matching.summary, ...options,
+        startId, tree, counts, trait:trait?.text, originalTree, originalCounts, taxaMatching:matching.report, taxaMatchingSummary:matching.summary, ...options,
         jobTitle: form.elements.jobTitle.value,
         params: createWrapperParams(definedModels, defaults, options), nativeFiles,
         nativeParams: nativeFiles[0].params, nativeFilename: nativeFiles[0].filename

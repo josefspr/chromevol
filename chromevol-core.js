@@ -3,21 +3,21 @@
  * Browser: <script src="chromevol-core.js"></script> exposes SincopaCore.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./chromevol-user-defined.js'));
-  else root.SincopaCore = factory(root.ChromevolUserDefined);
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (userDefined) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./chromevol-user-defined.js'),require('./chromevol-trait.js'));
+  else root.SincopaCore = factory(root.ChromevolUserDefined,root.ChromevolTrait);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (userDefined,traitModel) {
 'use strict';
 const normalizeText = text => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 function portableParams(text) {
   const inputFields = new Set(['_treesFile','_treeFile','_dataFile','TreesDirArr',
-    'TreeFile','CountsFile','TreeFile_txt','CountsFile_txt']);
+    'TreeFile','CountsFile','TreeFile_txt','CountsFile_txt','TraitFile','TraitFile_txt','_traitFilePath']);
   return normalizeText(text).split('\n').filter(line => {
     const separator = line.indexOf(':');
     return separator < 0 || !inputFields.has(line.slice(0, separator).trim());
   }).join('\n');
 }
 function readParameters(text) { return readDefaults(normalizeText(text)); }
-function prepareRun({tree, counts, params, template, defaultsText}) {
+function prepareRun({tree, counts, trait, params, template, defaultsText}) {
   tree = normalizeText(tree); counts = normalizeText(counts);
   const settings = readParameters(params);
   const defaults = readDefaults(normalizeText(defaultsText));
@@ -29,13 +29,18 @@ function prepareRun({tree, counts, params, template, defaultsText}) {
     userDefinedClades:settings.userDefinedClades || '[]'
   };
   let definedModels = JSON.parse(settings.definedModels);
+  if(options.analysisType==='DiscreteTraitModel'&&definedModels.length!==1)throw new Error('Discrete Trait Model requires exactly one chromosome model.');
   if (options.analysisType === 'TimeHeterogeneous') definedModels = [{...definedModels[0], name:'Background'}];
   let nativeFiles = definedModels.map((model,id) => ({
     id, modelName:model.name, filename:'param_'+model.name+'.txt',
     params:fixPaths(createParams(template,model,counts,defaults,options))
   }));
   if(options.analysisType==='TimeHeterogeneous'&&options.transitionPoints==='UserDefined')nativeFiles=nativeFiles.map(model=>userDefined.configure(model,tree,options.userDefinedClades));
-  return {tree,counts,params,definedModels,nativeFiles,...options};
+  if(options.analysisType==='DiscreteTraitModel'){
+    const checked=traitModel.validate(tree,trait,settings);trait=checked.text;
+    nativeFiles=nativeFiles.map(model=>traitModel.configure(model,checked));
+  }
+  return {tree,counts,trait,params,definedModels,nativeFiles,...options};
 }
 function createParams(template, model, countsText, defaults, options = {
   analysisType: 'Homogenous', maxRateRegimes: '1', minCladeSize: '5'
@@ -117,6 +122,7 @@ function createWrapperParams(definedModels, defaults, options = {analysisType: '
     maxRateRegimes: options.analysisType === 'TimeHeterogeneous' ? String(options.maxRateRegimes) : '1',
     minCladeSize: String(options.minCladeSize), NumberOfTrees: '1',
     AdeqTest: 'NO',
+    ...options.traitSettings,
     definedModels: JSON.stringify(definedModels),
     _outDir: '/input/chromevol_out', _name: 'browser_run', _cpusNum: '1'
   };
@@ -135,10 +141,34 @@ function fixPaths(text) {
     if (pattern.test(text)) text = text.replace(pattern, key + ' = ' + value);
     else text += '\n' + key + ' = ' + value + '\n';
   }
+  if(/^\s*_traitFilePath\s*=/m.test(text))text=text.replace(/^\s*_traitFilePath\s*=.*$/gm,'_traitFilePath = /input/traitFile');
   return text;
+}
+// Joint output includes an independent fit first; never mix its rates with the alternative.
+function summarizeTrait(text){
+  const marker='Best model Trait and Chromosome number joint likelihood (alternative hypothesis)';
+  const section=text.slice(text.indexOf(marker)+marker.length);
+  const functions=[...text.matchAll(/^\s*(baseNumR|dupl|gain|demi|loss):\s*(\w+)/gm)].map(m=>m[1]+': '+m[2]).join('\n');
+  const normalized=functions+'\nBest chosen model\n'+section.replace(/ value is /g,' = ');
+  const parsed=summarizeResults(normalized);
+  const number=pattern=>{const m=text.match(pattern);return m?Number(m[1]):null;};
+  parsed.selectedShiftCount=0;
+  parsed.isTrait=true;parsed.isHeterogeneous=false;parsed.aicc=null;parsed.shiftModels=[];
+  parsed.regimes.forEach((regime,i)=>{regime.name='State '+i;regime.root='-';});
+  parsed.trait={
+    nullNLL:number(/-log-likelihood value \(null hypothesis\):\s*([+\-\d.eE]+)/),
+    jointNLL:number(/-log-likelihood value \(alternative hypothesis\):\s*([+\-\d.eE]+)/),
+    degreesOfFreedom:number(/Degrees of freedom:\s*(\d+)/),
+    chiSquare:number(/chi square statistic is:\s*([+\-\d.eE]+)/),
+    criticalThreshold:number(/Critical threshold value:\s*([+\-\d.eE]+)/),
+    conclusion:/Null model is not rejected!/.test(text)?'Null model is not rejected.':/Null model is rejected!/.test(text)?'Null model is rejected.':null,
+    parameters:[...section.matchAll(/^(?!Chromosome)(\S+) value is ([+\-\d.eE]+)/gm)].map(m=>({name:m[1],value:Number(m[2])}))
+  };
+  return parsed;
 }
 // Parse only the chosen final model, excluding earlier forward-phase models.
 function summarizeResults(text) {
+  if(text.includes('Best model Trait and Chromosome number joint likelihood (alternative hypothesis)'))return summarizeTrait(text);
   let finalSection = false;
   const result = {regimeCount:1, regimes:[], aicc:null};
   const functions = {}, values = {}, roots = {};
@@ -206,7 +236,7 @@ function summarizeResults(text) {
   return result;
 }
 
-function convert_to_PhyD3(newick, countsText) {
+function convert_to_PhyD3(newick, countsText, isTrait=false) {
   const counts = new Map();
   let taxon;
   for (const raw of countsText.split(/\r\n?|\n/)) {
@@ -291,9 +321,10 @@ function convert_to_PhyD3(newick, countsText) {
     const lines = [indent + '<clade>'];
     if (node.name) {
       // Remove only chromEvol's numeric count suffix, preserving taxon hyphens.
-      const name = counts.has(node.name) ? node.name : node.name.replace(/-\d+$/, '');
-      lines.push(indent + '  <name>' + xml(name) + '</name>');
-      lines.push(indent + '  <chrom>' + xml(counts.get(name) ?? ' - ') + '</chrom>');
+      const name = counts.has(node.name) ? node.name : node.name.replace(isTrait?/-\d+-\d+$/:/-\d+$/, '');
+      const traitMatch=isTrait?node.name.match(/-(\d+)-(\d+)$/):null;
+      lines.push(indent + '  <name>' + xml(isTrait?node.name:name) + '</name>');
+      lines.push(indent + '  <chrom>' + xml(counts.get(name) ?? (traitMatch?traitMatch[2]:' - ')) + '</chrom>');
     }
     if (node.length !== undefined) lines.push(indent + '  <branch_length>' + node.length + '</branch_length>');
     for (const child of node.children) lines.push(clade(child, depth + 1));
@@ -399,10 +430,12 @@ function summaryCSV(results) {
   ['Base (monoploid) number addition','Duplication','Ascending dysploidy','Duplication by 1.5','Descending dysploidy','Base (monoploid) number'].forEach((label,index)=>{
     rows.push([label,...columns.map(({regime})=>regime.rows[index]??'-')]);
   });
-  if(sorted.some(record=>record.parsed?.isHeterogeneous)) {
-    rows.push(['ΔAIC comparison model',...columns.map(({record,regime})=>deltaComparison(record,regime,best).name)]);
+  if(sorted.some(r=>r.parsed?.isTrait)){
+    for(const key of ['nullNLL','jointNLL','degreesOfFreedom','chiSquare','criticalThreshold','conclusion'])rows.push([key,...columns.map(({record})=>record.parsed?.trait?.[key]??'-')]);
+  }else{
+    if(sorted.some(record=>record.parsed?.isHeterogeneous))rows.push(['ΔAIC comparison model',...columns.map(({record,regime})=>deltaComparison(record,regime,best).name)]);
+    rows.push(['ΔAIC from best model',...columns.map(({record,regime})=>deltaComparison(record,regime,best).value)]);
   }
-  rows.push(['ΔAIC from best model',...columns.map(({record,regime})=>deltaComparison(record,regime,best).value)]);
   return '\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value??'').replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n';
 }
 function exportEntries({input, nativeFiles = input.nativeFiles || [], results, log = ''}) {
@@ -417,6 +450,7 @@ function exportEntries({input, nativeFiles = input.nativeFiles || [], results, l
     {name:'run.log',content:log}
   ];
   const safe=name=>String(name).replace(/[^a-zA-Z0-9._=-]/g,'_').replace(/^\.+$/,'model')||'model';
+  if(input.trait)entries.push({name:'input/traitFile',content:input.trait});
   for(const model of nativeFiles) entries.push({name:'parameters/'+(Number(model.id)+1)+'_'+safe(model.filename),content:fixPaths(model.params)});
   for(const record of orderedResults(results)) {
     const folder='models/'+(Number(record.id)+1)+'_'+safe(record.modelName)+'/';
@@ -424,7 +458,7 @@ function exportEntries({input, nativeFiles = input.nativeFiles || [], results, l
     let xml=record.phyloXML;
     if(!xml) {
       const tree=record.files.find(file=>file.name==='MLAncestralReconstruction.tree');
-      if(tree)xml=convert_to_PhyD3(textOf(tree.bytes),input.counts);
+      if(tree)xml=convert_to_PhyD3(textOf(tree.bytes),input.counts,input.analysisType==='DiscreteTraitModel');
     }
     if(xml&&!record.files.some(file=>file.name==='MLAncestralReconstruction_phylo.xml'))entries.push({name:folder+'MLAncestralReconstruction_phylo.xml',content:xml});
     if(record.error||record.summaryError)entries.push({name:folder+'run-status.txt',content:[record.error,record.summaryError].filter(Boolean).join('\n')});
