@@ -43,6 +43,35 @@ async function build(input){
         'node ".\\run-models.js" --tree ".\\TreesFile.txt" --counts ".\\countsFile" --params ".\\params.txt" --output ".\\results.zip"'+(input.trait?' --trait ".\\traitFile"':'')+' %* > ".\\run.log" 2>&1',
         'exit /b %errorlevel%',''
       ].join('\r\n')},
+      {name:'run-chromevol-awake.cmd',content:[
+        '@echo off','setlocal','cd /d "%~dp0"',
+        'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0run-chromevol-awake.ps1" %*',
+        'exit /b %errorlevel%',''
+      ].join('\r\n')},
+      {name:'run-chromevol-awake.ps1',content:[
+        '# Keep Windows awake while this ChromEvol job runs. Display may turn off.',
+        '# The power request is released even when Node returns an error.',
+        '$ErrorActionPreference = "Stop"',
+        '$powerSource = @"',
+        'using System.Runtime.InteropServices;',
+        'public static class ChromevolPower {',
+        '  [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);',
+        '}',
+        '"@',
+        'Add-Type -TypeDefinition $powerSource',
+        '$ES_CONTINUOUS = [uint32]2147483648',
+        '$ES_SYSTEM_REQUIRED = [uint32]0x00000001',
+        '$result = [ChromevolPower]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED)',
+        'if ($result -eq 0) { throw "Unable to request Windows idle-sleep prevention." }',
+        '$exitCode = 1',
+        'try {',
+        '  & node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip")'+(input.trait?' --trait (Join-Path $PSScriptRoot "traitFile")':'')+' @args > (Join-Path $PSScriptRoot "run.log") 2>&1',
+        '  $exitCode = $LASTEXITCODE',
+        '} finally {',
+        '  [void][ChromevolPower]::SetThreadExecutionState($ES_CONTINUOUS)',
+        '}',
+        'exit $exitCode',''
+      ].join('\r\n')},
       {name:'run-chromevol.ps1',content:[
         '# Run from any working directory. Extra arguments are passed to the launcher.',
         '& node (Join-Path $PSScriptRoot "run-models.js") --tree (Join-Path $PSScriptRoot "TreesFile.txt") --counts (Join-Path $PSScriptRoot "countsFile") --params (Join-Path $PSScriptRoot "params.txt") --output (Join-Path $PSScriptRoot "results.zip")'+(input.trait?' --trait (Join-Path $PSScriptRoot "traitFile")':'')+' @args > (Join-Path $PSScriptRoot "run.log") 2>&1',

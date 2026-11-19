@@ -32,6 +32,24 @@ In PowerShell or Command Prompt, open the extracted folder and run:
 A PowerShell script is also included: .\run-chromevol.ps1
 If your execution policy blocks PowerShell scripts, use run-chromevol.cmd.
 
+TO PREVENT WINDOWS IDLE SLEEP DURING A LONG RUN (RECOMMENDED)
+In PowerShell or Command Prompt, run:
+
+.\run-chromevol-awake.cmd
+
+This launches the same job with the same options and writes to run.log, but
+asks Windows not to enter automatic idle sleep until Node finishes. It leaves
+screen sleep unchanged, and releases the request automatically when finished
+or if Node fails. It does not prevent manual sleep, shutdown, or closing a
+laptop lid configured to sleep. You do not need administrator privileges.
+The .cmd file starts the included PowerShell wrapper with a process-only
+execution policy override. Alternatively, in PowerShell, run:
+
+.\run-chromevol-awake.ps1
+
+To supply extra arguments use, for example:
+.\run-chromevol-awake.cmd --adequacy none
+
 RESULT
 The scripts use TreesFile.txt, countsFile and params.txt in their own folder
 and create results.zip there. They fit the defined models and automatically
