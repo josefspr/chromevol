@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+
+<style>
+.form-radio
+{
+     -webkit-appearance: none;
+     -moz-appearance: none;
+     appearance: none;
+     display: inline-block;
+     position: relative;
+     background-color: #f1f1f1;
+     color: #666;
+     top: 10px;
+     height: 30px;
+     width: 30px;
+     border: 0;
+     border-radius: 50px;
+     cursor: pointer;     
+     margin-right: 7px;
+     outline: none;
+}
+.form-radio:checked::before
+{
+     position: absolute;
+     font: 13px/1 'Open Sans', sans-serif;
+     left: 11px;
+     top: 7px;
+     content: '\02143';
+     transform: rotate(40deg);
+}
+.form-radio:hover
+{
+     background-color: #f7f7f7;
+}
+.form-radio:checked
+{
+     background-color: #f1f1f1;
+}
+label
+{
+     font: 15px/1.7 'Open Sans', sans-serif;
+     color: #333;
+     -webkit-font-smoothing: antialiased;
+     -moz-osx-font-smoothing: grayscale;
+     cursor: pointer;
+} 
+
+
+line {
+	width: 300px;
+	margin-left: auto;
+	margin-right: auto;
+	height: 100px;
+	background-color:#2020ab;
+	opcaity: 0.5;
+}
+
+div.content {
+	width: 1100px;
+	margin: auto;
+}
+
+ul {
+  list-style-type: none;
+  margin: auto;
+  /*padding: 6px;*/
+  text-align: center;
+  padding-left: 20px;
+  width: 1090px;
+  font-size:14px;
+  overflow: hidden;
+  background-color: #007399;
+}
+
+li {
+  float: left;
+}
+
+li.right {
+  float: right;
+}
+
+li a {
+  display: block;
+  color: white;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+
+li a:hover {
+  background-color: #111;
+}
+
+header_font {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 45px;
+}
+header_small_font {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 20px;
+}
+
+.topnav-right {
+	padding-left: 25px;
+}
+
+.submitButton {
+	-moz-box-shadow:inset 0px 1px 0px 0px #99a4c9;
+	-webkit-box-shadow:inset 0px 1px 0px 0px #99a4c9;
+	box-shadow:inset 0px 1px 0px 0px #99a4c9;
+	background:-webkit-gradient(linear, left top, left bottom, color-stop(0.05, #4271bc), color-stop(1, #2def34));
+	background:-moz-linear-gradient(top, #4271bc 5%, #2def34 100%);
+	background:-webkit-linear-gradient(top, #4271bc 5%, #5da4e2 100%);
+	background:-o-linear-gradient(top, #4271bc 5%, #5da4e2 100%);
+	background:-ms-linear-gradient(top, #4271bc 5%, #5da4e2 100%);
+	background:linear-gradient(to bottom, #4271bc 5%, #5da4e2 100%);
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#4271bc', endColorstr='#5da4e2',GradientType=0);
+	background-color:#4271bc;
+	-moz-border-radius:6px;
+	-webkit-border-radius:6px;
+	border-radius:6px;
+	border:1px solid #ffaa22;
+	display:inline-block;
+	cursor:pointer;
+	color:#333333;
+	font-family:Arial, sans-serif;
+	font-size:15px;
+	font-weight:bold;
+	padding:6px 24px;
+	text-decoration:none;
+	text-shadow:0px 1px 0px #ffee66;
+}
+.submitButton:hover {
+	background:-webkit-gradient(linear, left top, left bottom, color-stop(0.05, #5da4e2), color-stop(1, #4271bc));
+	background:-moz-linear-gradient(top, #5da4e2 5%, #4271bc 100%);
+	background:-webkit-linear-gradient(top, #5da4e2 5%, #4271bc 100%);
+	background:-o-linear-gradient(top, #5da4e2 5%, #4271bc 100%);
+	background:-ms-linear-gradient(top, #5da4e2 5%, #4271bc 100%);
+	background:linear-gradient(to bottom, #5da4e2 5%, #4271bc 100%);
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#5da4e2', endColorstr='#4271bc',GradientType=0);
+	background-color:#5da4e2;
+}
+.submitButton:active {
+	position:relative;
+	top:1px;
+}
+</style>
+<html lang="en">
+<head>
+  <!--<link rel="shortcut icon" type="image/png" href="{% static 'favicon/favicon.png' %}?ver=2"/>-->
+  <meta charset="utf-8">
+  <meta name="viewport"  content="width=device-width, initial-scale=1, user-scalable=yes">
+	<link rel="shortcut icon" href="images/shutterstock_443040703-1000x480.jpg"/>
+  <title>chromEvol</title>
+
+
+	<!--<link rel="stylesheet" type="text/css" href="chromEvol1.css">-->
+	<!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+	<link href="http://www.jqueryscript.net/css/jquerysctipttop.css" rel="stylesheet" type="text/css">-->
+
+	<!--<link rel="icon" href="data:;base64,=">-->
+    <!--script type='text/javascript' src='http://dstats.net/sitetracker.php?url=http://PhyComb.tau.ac.il/search'></script-->
+	
+	<!--<script type="text/javascript" language="javascript" src="//code.jquery.com/jquery-1.12.3.js"></script>-->
+	<script src="https://code.jquery.com/jquery-1.8.2.js"></script>
+	<script src="jquery-csv-master/src/jquery.csv.js"></script>
+    <script src='js/purl.js'></script>
+	
+	<!--<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.12/js/jquery.dataTables.min.js"></script>
+	<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.12/js/dataTables.bootstrap.min.js"></script> 
+	
+ 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
+	
+	<link rel="stylesheet" type="text/css" href="https:///maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.12/css/dataTables.bootstrap.min.css">
+	<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.12/js/jquery.dataTables.min.js"></script>
+	
+	<script type="text/javascript" language="javascript" src="https://cdn.datatables.net/1.10.12/js/dataTables.bootstrap.min.js"></script>-->
+
+	<script src="js/googleAnalytics.js"></script>
+	
+<script>
+
+	$(document).ready(function(){
+    
+    $("#header").load("header.html"); 
+    
+	//-------------------------------------------------------------		
+	// Load file of user into Text Area of node dating section:
+	function readTextFile(file, callback, encoding) {
+		var reader = new FileReader();
+		reader.addEventListener('load', function (e) {
+			callback(this.result);
+		});
+		if (encoding) reader.readAsText(file, encoding);
+		else reader.readAsText(file);
+	
+		
+	}
+
+	$(function(){
+	  $("#header").load("header.html"); 
+	});	
+
+	
+	function fileChosen(input, output) {
+		if (input.files && input.files[0]) {
+			readTextFile(
+				input.files[0],
+				function (str) {
+					output.value = str;
+				}
+			);
+		}
+	}
+
+
+	$('#TreeFile').on('change', function () {
+		fileChosen(this, document.getElementById('TreeFile_txt'));
+	});
+	
+	$('#CountsFile').on('change', function () {
+		fileChosen(this, document.getElementById('CountsFile_txt'));
+	});
+
+});
+	
+
+$(function () {
+	$("#popover5").popover({ container: 'body'});
+	$("#popover4").popover({ container: 'body'});
+});
+
+
+function eraseInputText() {
+    document.getElementById("inputText").value = "";
+}
+function eraseInputTextCounts() {
+    $(".inputTextCounts").text = "";
+    //document.getElementById("inputTextCounts").value = "";
+}
+
+
+  function handleFileSelect(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    var files = evt.dataTransfer.files; // FileList object.
+
+    // files is a FileList of File objects. List some properties.
+    var output = [];
+    for (var i = 0, f; f = files[i]; i++) {
+      output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+                  f.size, ' bytes, last modified: ',
+                  f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
+                  '</li>');
+    }
+    document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
+  }
+
+  function handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  }
+
+
+  	function validateForm(){	
+		// verify there is input
+		var treeTxt = document.getElementById("TreeFile_txt").value;
+
+		if (treeTxt == "")  
+		{
+			alert('Please upload tree file !!');
+			return false;
+			
+		}
+		return true;
+	}
+	
+	
+	function returnResults(){
+	
+		jobID_var = $.url().param('OriginJobID');
+		document.writeIn(jobId + 'cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx <br>');
+	}
+
+	
+
+</script> 
+
+<script src="https://netdna.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+ 
+ </head>
+<body>
+
+<div class="content">
+
+<div id="header"></div>
+
+	<div class="topnav-right">
+				<br><input type="text" id="JobToLoadID" value="" placeholder="Enter your results ID"/>
+				<a href='' id="LoadJob_button" onclick="this.href='results.html?jobId='+document.getElementById('JobToLoadID').value+'&jobTitle=check'">Load previous results</a>
+
+	</div>	
+	
+	<br><br>
+
+
+	<form name="myForm" method="post" action="/cgi-bin/chromevol/chromEvol_Counts.cgi" enctype="multipart/form-data" onsubmit="return validateForm()">
+			
+		<div class = "col-md-12 col-lg-12" style="visibility: visible">
+				<font face="serif" size="5" color="#4271bc">Load your Tree file:</font><a id="popover5" data-trigger="hover" class="btn btn-default transparentBorder fontSize_23px" rel="popover" data-html="true" data-content="Load your tree in a NEWICK format. Counts will be searched for the tips names. Select which statistic to return in case of multiple counts per taxon."><span class="glyphicon glyphicon-info-sign infoIcon"></span></a><br>
+				<br>
+				<input type="file" id="TreeFile" name="TreeFile" >
+				<textarea id="TreeFile_txt" name="TreeFile_txt" rows=10 cols=60></textarea>
+		</div>
+			
+			<div class="col-md-12 col-lg-12" style="visibility: visible">	
+				<br><br>
+				<font face="serif" size="5" color="#4271bc">Select Counts Summary Statistic:</font><a id="popover4" data-trigger="hover" class="btn btn-default transparentBorder fontSize_23px" rel="popover" data-html="true" data-content="In case of multiple counts per one taxon select the requested summary statistic.">
+				<span class="glyphicon glyphicon-info-sign infoIcon" data-toggle="tooltip"></span></a><br>
+				<br>
+				<select name="countsType">
+				  <option value="median">Median</option>
+				  <option value="min">Minimum</option>
+				  <option value="max">Max</option>
+				  <option value="distribution">Distribution</option>
+				</select>
+
+			</div>	
+
+
+			<br><br>
+			<div class="col-md-12 col-lg-12" style="text-align:center"> 
+				<p><input class="submitButton" type="submit" name="Submit" value="   Get Counts   " id="submitFormBtn" onsubmit="returnResults(); return False"></p>
+			</div>  
+
+		<a style="text-decoration:none" id="Counts_output" ></a>
+		
+		<link href="bootstrap-5.3.3-dist/css/bootstrap.min.css" rel="stylesheet">
+		
+		<link rel="stylesheet" type="text/css" media="screen and (min-aspect-ratio: 1/1)" href="http://OneTwoTree.tau.ac.il/css/onetwotree_web.css">
+		<link rel="stylesheet" type="text/css" media="screen and (max-aspect-ratio: 1/1)" href="http://OneTwoTree.tau.ac.il/css/onetwotree_mobile.css">
+	
+	</form>
+
+
+		
+	 <br> <br> <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+	 <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+	 <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+	 <br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br><br> <br>
+
+</div>
+</body>
+</html>
